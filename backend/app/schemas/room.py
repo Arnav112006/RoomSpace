@@ -1,6 +1,8 @@
 from pydantic import BaseModel, Field
 from typing import Optional
 
+from app.schemas.furniture import FurnitureItem
+
 
 class RoomDimensions(BaseModel):
     length: float = Field(gt=0)
@@ -23,3 +25,4 @@ class RoomResponse(BaseModel):
     theme: str
     occasion: Optional[str] = None
     budget: Optional[float] = None
+    furniture: list[FurnitureItem] = Field(default_factory=list)
