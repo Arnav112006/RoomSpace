@@ -2,3 +2,6 @@
 We finalized the LaTeX project proposal for RoomSpace, a constraint-based room planning and decoration recommendation system. 
 The document outlines the problem statement, proposed web-based solution, system architecture, spatial constraint logic, evaluation criteria, scalability, risks, and planned deliverables.
 
+09-09-2026 :
+Made a simple frontend for demonstration purpose. It has some problem while conecting to the backend API so it is using local fallback as of now.
+Also, currently working on the product - recommendation dataset, finding and the preprocessing of that dataset.
