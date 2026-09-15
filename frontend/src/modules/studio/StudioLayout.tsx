@@ -1,5 +1,5 @@
-import { useRoomStore } from "../../store/roomStore";
-import { SectionHeading, Spinner } from "../ui/Primitives";
+import { useRoomStore } from "@/shared/store/roomStore";
+import { SectionHeading, Spinner } from "@/shared/ui/Primitives";
 import { CandidatePanel } from "./CandidatePanel";
 import { FloorPlanCanvas } from "./FloorPlanCanvas";
 import { CommandBar } from "./CommandBar";

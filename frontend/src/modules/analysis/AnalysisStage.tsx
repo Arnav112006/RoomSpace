@@ -1,6 +1,6 @@
-import { useRoomStore } from "../../store/roomStore";
-import { Card, EmptyState, SectionHeading } from "../ui/Primitives";
-import type { FurnitureType } from "../../types";
+import { useRoomStore } from "@/shared/store/roomStore";
+import { Card, EmptyState, SectionHeading } from "@/shared/ui/Primitives";
+import type { FurnitureType } from "@/shared/types";
 
 const TYPE_OPTIONS: FurnitureType[] = ["bed", "wardrobe", "table", "chair", "desk", "sofa", "shelf", "window", "door", "other"];
 const ZONE_OPTIONS = ["north wall", "south wall", "east wall", "west wall", "center", "left corner", "right corner"];
@@ -19,7 +19,7 @@ export function AnalysisStage() {
       />
 
       {analysisError && (
-        <p className="text-sm text-clay-600 bg-clay-500/10 border border-clay-500/30 rounded-sm px-3 py-2 mb-4">
+        <p className="text-sm text-clay-400 bg-clay-500/10 border border-clay-500/30 rounded-sm px-3 py-2 mb-4">
           {analysisError} Detection is skipped for this room; you can still add furniture manually below.
         </p>
       )}
@@ -50,7 +50,7 @@ export function AnalysisStage() {
                       onChange={(e) => updateFurnitureItem(index, { label: e.target.value })}
                       className="font-medium text-sm !bg-transparent !border-0 !p-0 focus:!border-0"
                     />
-                    <button className="text-xs text-clay-600" onClick={() => removeFurnitureItem(index)}>
+                    <button className="text-xs text-clay-400" onClick={() => removeFurnitureItem(index)}>
                       Not actually there
                     </button>
                   </div>

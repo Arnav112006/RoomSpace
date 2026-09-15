@@ -1,12 +1,12 @@
 import { useEffect } from "react";
-import { useRoomStore } from "./store/roomStore";
-import { Header } from "./components/layout/Header";
-import { StageRail } from "./components/layout/StageRail";
-import { RoomInputStage } from "./components/stages/RoomInputStage";
-import { AnalysisStage } from "./components/stages/AnalysisStage";
-import { RoomModelStage } from "./components/stages/RoomModelStage";
-import { StudioLayout } from "./components/studio/StudioLayout";
-import { RecommendationsStage } from "./components/stages/RecommendationsStage";
+import { useRoomStore } from "@/shared/store/roomStore";
+import { Header } from "@/shared/layout/Header";
+import { StageRail } from "@/shared/layout/StageRail";
+import { RoomInputStage } from "@/modules/room-input/RoomInputStage";
+import { AnalysisStage } from "@/modules/analysis/AnalysisStage";
+import { RoomModelStage } from "@/modules/room-model/RoomModelStage";
+import { StudioLayout } from "@/modules/studio/StudioLayout";
+import { RecommendationsStage } from "@/modules/recommendations/RecommendationsStage";
 
 export default function App() {
   const step = useRoomStore((s) => s.step);
@@ -30,14 +30,14 @@ export default function App() {
           {step === "recommendations" && <RecommendationsStage />}
         </main>
       </div>
-      <footer className="border-t border-ink/10 py-4">
+      <footer className="border-t border-white/10 py-4">
         <div className="max-w-[1400px] mx-auto px-6 flex items-center justify-between text-xs text-ink-muted">
           <span>RoomSpace — physically feasible layouts first, styling second.</span>
           <a
             href="https://github.com/Arnav112006/RoomSpace"
             target="_blank"
             rel="noreferrer"
-            className="hover:text-ink"
+            className="hover:text-paper transition-colors"
           >
             github.com/Arnav112006/RoomSpace
           </a>

@@ -7,12 +7,12 @@ import type {
   RoomDimensions,
   RoomResponse,
   ScoredLayout,
-} from "../types";
-import { api, ApiError } from "../lib/api";
-import { generateCandidates, rankCandidates, type LayoutStyle } from "../lib/layoutEngine";
-import { validateLayoutLocal } from "../lib/constraintEngine";
-import { parseCommand, describeAction } from "../lib/commandParser";
-import { roomDimensionsCm } from "../lib/units";
+} from "@/shared/types";
+import { api, ApiError } from "@/shared/lib/api";
+import { generateCandidates, rankCandidates, type LayoutStyle } from "@/shared/lib/layoutEngine";
+import { validateLayoutLocal } from "@/shared/lib/constraintEngine";
+import { parseCommand, describeAction } from "@/shared/lib/commandParser";
+import { roomDimensionsCm } from "@/shared/lib/units";
 
 export type WizardStep = "input" | "analysis" | "model" | "studio" | "recommendations";
 

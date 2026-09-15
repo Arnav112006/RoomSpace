@@ -1,4 +1,4 @@
-import type { Product, ProductCategory } from "../types";
+import type { Product, ProductCategory } from "@/shared/types";
 
 // Stand-in product catalog. In production this is the real product
 // feed described in backend/app/services/product_filter.py +

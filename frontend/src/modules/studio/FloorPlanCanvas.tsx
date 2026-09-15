@@ -1,8 +1,8 @@
 import { useRef, useState } from "react";
-import { useRoomStore } from "../../store/roomStore";
-import { roomDimensionsCm } from "../../lib/units";
-import type { Placement } from "../../types";
-import { Badge, Spinner } from "../ui/Primitives";
+import { useRoomStore } from "@/shared/store/roomStore";
+import { roomDimensionsCm } from "@/shared/lib/units";
+import type { Placement } from "@/shared/types";
+import { Badge, Spinner } from "@/shared/ui/Primitives";
 
 const SCALE_PX_PER_CM = 0.55;
 
@@ -69,7 +69,7 @@ export function FloorPlanCanvas() {
   const roomHeightPx = widthCm * SCALE_PX_PER_CM;
 
   return (
-    <div className="relative h-full w-full overflow-hidden blueprint-surface rounded-md border border-ink/10">
+    <div className="relative h-full w-full overflow-hidden blueprint-surface rounded-md border border-white/10">
       <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
         {activeFeasible ? (
           <Badge tone="good">Feasible — no violations</Badge>
@@ -80,15 +80,15 @@ export function FloorPlanCanvas() {
       </div>
 
       <div className="absolute top-3 right-3 z-10 flex items-center gap-1">
-        <button className="btn-ghost !px-2 !py-1 bg-white/80" onClick={() => setZoom((z) => Math.max(0.3, z - 0.15))}>
+        <button className="btn-ghost !px-2 !py-1 bg-ink-800/90" onClick={() => setZoom((z) => Math.max(0.3, z - 0.15))}>
           −
         </button>
-        <span className="text-xs font-mono w-10 text-center bg-white/80 rounded-sm py-1">{Math.round(zoom * 100)}%</span>
-        <button className="btn-ghost !px-2 !py-1 bg-white/80" onClick={() => setZoom((z) => Math.min(3, z + 0.15))}>
+        <span className="text-xs font-mono w-10 text-center bg-ink-800/90 border border-white/10 rounded-sm py-1">{Math.round(zoom * 100)}%</span>
+        <button className="btn-ghost !px-2 !py-1 bg-ink-800/90" onClick={() => setZoom((z) => Math.min(3, z + 0.15))}>
           +
         </button>
         <button
-          className="btn-ghost !px-2 !py-1 bg-white/80"
+          className="btn-ghost !px-2 !py-1 bg-ink-800/90"
           onClick={() => {
             setZoom(1);
             setPan({ x: 0, y: 0 });
