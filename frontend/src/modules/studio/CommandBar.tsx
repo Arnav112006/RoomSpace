@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useRoomStore } from "../../store/roomStore";
-import { Badge, Spinner } from "../ui/Primitives";
+import { useRoomStore } from "@/shared/store/roomStore";
+import { Badge, Spinner } from "@/shared/ui/Primitives";
 
 const SUGGESTIONS = ["Move the sofa to the left wall", "Add a table near the window", "Remove the chair", "Rotate the desk"];
 
@@ -41,17 +41,17 @@ export function CommandBar() {
 
       <div className="flex flex-wrap gap-1.5">
         {SUGGESTIONS.map((s) => (
-          <button key={s} onClick={() => submit(s)} className="text-[11px] text-blueprint-700 border border-blueprint-200 rounded-sm px-2 py-1 hover:bg-blueprint-50">
+          <button key={s} onClick={() => submit(s)} className="text-[11px] text-blueprint-700 border border-blueprint-500/30 rounded-sm px-2 py-1 hover:bg-blueprint-500/10">
             {s}
           </button>
         ))}
       </div>
 
       {commandLog.length > 0 && (
-        <div className="border-t border-ink/10 pt-3 space-y-2 max-h-40 overflow-y-auto">
+        <div className="border-t border-white/10 pt-3 space-y-2 max-h-40 overflow-y-auto">
           {commandLog.map((entry) => (
             <div key={entry.id} className="text-xs">
-              <p className="text-ink">“{entry.text}”</p>
+              <p className="text-paper">“{entry.text}”</p>
               <p className="flex items-center gap-1.5 mt-0.5">
                 <Badge tone={entry.ok ? "good" : "bad"}>{entry.ok ? "applied" : "rejected"}</Badge>
                 <span className="text-ink-muted">{entry.result}</span>

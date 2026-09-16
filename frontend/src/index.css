@@ -4,47 +4,70 @@
 
 @layer base {
   html {
-    color-scheme: light;
+    color-scheme: dark;
   }
   body {
-    @apply bg-paper text-ink font-sans antialiased;
+    @apply bg-ink-950 text-paper font-sans antialiased;
+    background-image: radial-gradient(circle at 50% -10%, rgba(91, 155, 212, 0.08), transparent 55%);
+    background-attachment: fixed;
   }
   ::selection {
-    @apply bg-brass-400/40;
+    @apply bg-brass-500/30 text-paper;
   }
   :focus-visible {
-    outline: 2px solid #2a5c8a;
+    outline: 2px solid #5b9bd4;
     outline-offset: 2px;
   }
   h1, h2, h3 {
-    @apply font-display;
+    @apply font-display text-paper;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
   }
   input, select, textarea {
-    @apply bg-white/70 border border-ink/15 rounded-sm px-3 py-2 text-sm text-ink outline-none transition-colors;
+    @apply bg-ink-800/80 border border-white/10 rounded-sm px-3 py-2 text-sm text-paper outline-none transition-colors placeholder:text-ink-muted;
   }
   input:focus, select:focus, textarea:focus {
-    @apply border-blueprint-600;
+    @apply border-blueprint-600/70;
+  }
+  input[type="checkbox"] {
+    @apply px-0 py-0 w-4 h-4 accent-blueprint-600;
+  }
+  select option {
+    background-color: #161b24;
+    color: #edeff4;
   }
 }
 
 @layer components {
   .panel {
-    @apply bg-white/70 border border-ink/10 rounded-md;
+    @apply bg-ink-900/70 border border-white/[0.08] rounded-md shadow-panel backdrop-blur-sm;
   }
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-sm px-4 py-2 text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2 rounded-sm px-4 py-2 text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed;
   }
   .btn-primary {
-    @apply btn bg-blueprint-700 text-paper hover:bg-blueprint-900;
+    @apply btn bg-gradient-to-b from-blueprint-600 to-blueprint-500 text-ink-950 font-semibold hover:shadow-glow hover:from-blueprint-700 hover:to-blueprint-600;
   }
   .btn-brass {
-    @apply btn bg-brass-600 text-ink hover:bg-brass-700 hover:text-paper;
+    @apply btn bg-gradient-to-b from-brass-500 to-brass-400 text-ink-950 font-semibold hover:from-brass-600 hover:to-brass-500;
   }
   .btn-ghost {
-    @apply btn bg-transparent text-ink border border-ink/20 hover:border-ink/50;
+    @apply btn bg-white/[0.03] text-paper border border-white/[0.12] hover:border-white/30 hover:bg-white/[0.06];
   }
   .btn-danger {
-    @apply btn bg-transparent text-clay-600 border border-clay-500/40 hover:bg-clay-500/10;
+    @apply btn bg-transparent text-clay-400 border border-clay-500/40 hover:bg-clay-500/10;
   }
   .label-eyebrow {
     @apply text-xs tracking-wide text-ink-muted;
@@ -53,11 +76,12 @@
     @apply block text-xs font-medium text-ink-muted mb-1;
   }
   .blueprint-surface {
-    background-color: #fbfbf9;
+    background-color: #0d1117;
     background-image:
-      linear-gradient(to right, rgba(42,92,138,0.09) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(42,92,138,0.09) 1px, transparent 1px);
-    background-size: 24px 24px;
+      linear-gradient(to right, rgba(91, 155, 212, 0.10) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(91, 155, 212, 0.10) 1px, transparent 1px),
+      radial-gradient(circle at 30% 20%, rgba(91, 155, 212, 0.07), transparent 60%);
+    background-size: 28px 28px, 28px 28px, 100% 100%;
   }
 }
 

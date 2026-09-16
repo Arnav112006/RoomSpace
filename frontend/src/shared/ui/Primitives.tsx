@@ -16,7 +16,7 @@ export function SectionHeading({
   return (
     <div className="mb-5">
       {eyebrow && <p className="label-eyebrow mb-1">{eyebrow}</p>}
-      <h2 className="text-xl text-ink font-medium">{title}</h2>
+      <h2 className="text-xl text-paper font-medium">{title}</h2>
       {description && <p className="text-sm text-ink-muted mt-1 max-w-prose">{description}</p>}
     </div>
   );
@@ -41,10 +41,10 @@ export function Badge({
   children,
 }: PropsWithChildren<{ tone?: "neutral" | "good" | "bad" | "brass" }>) {
   const tones: Record<string, string> = {
-    neutral: "bg-ink/5 text-ink-muted border-ink/10",
-    good: "bg-moss-500/10 text-moss-600 border-moss-500/30",
-    bad: "bg-clay-500/10 text-clay-600 border-clay-500/30",
-    brass: "bg-brass-400/15 text-brass-700 border-brass-400/40",
+    neutral: "bg-white/5 text-ink-muted border-white/10",
+    good: "bg-moss-500/10 text-moss-400 border-moss-500/30",
+    bad: "bg-clay-500/10 text-clay-400 border-clay-500/30",
+    brass: "bg-brass-400/15 text-brass-300 border-brass-400/40",
   };
   return (
     <span className={`inline-flex items-center gap-1 rounded-sm border px-2 py-0.5 text-xs font-medium ${tones[tone]}`}>
@@ -56,7 +56,7 @@ export function Badge({
 export function EmptyState({ title, description, action }: { title: string; description: string; action?: ReactNode }) {
   return (
     <div className="text-center py-14 px-6">
-      <p className="text-ink font-display text-lg mb-1">{title}</p>
+      <p className="text-paper font-display text-lg mb-1">{title}</p>
       <p className="text-sm text-ink-muted max-w-sm mx-auto mb-4">{description}</p>
       {action}
     </div>

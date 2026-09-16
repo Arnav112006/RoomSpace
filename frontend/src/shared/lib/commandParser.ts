@@ -1,4 +1,4 @@
-import type { FurnitureType, MoveTarget, ParsedCommandAction } from "../types";
+import type { FurnitureType, MoveTarget, ParsedCommandAction } from "@/shared/types";
 
 // Stage 9 — User Refinement / Commands.
 // A small, predictable rule-based parser: predefined verbs, keyword

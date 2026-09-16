@@ -1,4 +1,4 @@
-import type { Placement, RoomCreate, RoomResponse } from "../types";
+import type { Placement, RoomCreate, RoomResponse } from "@/shared/types";
 
 // Points at the FastAPI service in backend/app. Override with
 // VITE_API_BASE_URL in .env if it's not running on the default port.

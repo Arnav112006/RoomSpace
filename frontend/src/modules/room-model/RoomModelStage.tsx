@@ -1,6 +1,6 @@
-import { useRoomStore } from "../../store/roomStore";
-import { Card, SectionHeading, Spinner } from "../ui/Primitives";
-import { roomDimensionsCm } from "../../lib/units";
+import { useRoomStore } from "@/shared/store/roomStore";
+import { Card, SectionHeading, Spinner } from "@/shared/ui/Primitives";
+import { roomDimensionsCm } from "@/shared/lib/units";
 
 export function RoomModelStage() {
   const { room, furniture, generateAndRank, generating } = useRoomStore();
@@ -28,7 +28,7 @@ export function RoomModelStage() {
           <Stat label="Fixed items" value={String(fixedCount)} />
         </div>
 
-        <div className="border-t border-ink/10 pt-4">
+        <div className="border-t border-white/10 pt-4">
           <p className="field-label mb-2">Furniture &amp; constraints entering the layout engine</p>
           {furniture.length === 0 ? (
             <p className="text-sm text-ink-muted">No furniture yet — the room will be generated empty.</p>
@@ -47,12 +47,12 @@ export function RoomModelStage() {
           )}
         </div>
 
-        <div className="border-t border-ink/10 pt-4">
+        <div className="border-t border-white/10 pt-4">
           <p className="field-label mb-2">Hard constraints that will be enforced</p>
           <div className="flex flex-wrap gap-2 text-xs text-ink-muted">
             {["Room boundaries", "No overlap", "Door clearance", "Window unobstructed", "Fixed-item rules", "Min. walking space (75cm)"].map(
               (c) => (
-                <span key={c} className="border border-ink/15 rounded-sm px-2 py-1">
+                <span key={c} className="border border-white/15 rounded-sm px-2 py-1">
                   {c}
                 </span>
               )
@@ -74,7 +74,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p className="text-ink-muted text-[11px] font-sans">{label}</p>
-      <p className="text-ink">{value}</p>
+      <p className="text-paper">{value}</p>
     </div>
   );
 }

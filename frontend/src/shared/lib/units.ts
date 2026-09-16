@@ -1,4 +1,4 @@
-import type { RoomDimensions } from "../types";
+import type { RoomDimensions } from "@/shared/types";
 
 const UNIT_TO_CM: Record<string, number> = { cm: 1, m: 100, ft: 30.48 };
 

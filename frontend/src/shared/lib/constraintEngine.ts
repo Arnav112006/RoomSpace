@@ -1,4 +1,4 @@
-import type { Placement, RoomDimensions } from "../types";
+import type { Placement, RoomDimensions } from "@/shared/types";
 import { roomDimensionsCm } from "./units";
 
 // Mirrors backend/app/services/constraint_engine.py exactly, so a
