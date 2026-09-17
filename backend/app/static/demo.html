@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>RoomSpace — Live Demo</title>
+<style>
+  :root {
+    --ink: #1f2420;
+    --muted: #6b756c;
+    --paper: #fbfaf6;
+    --card: #ffffff;
+    --border: #e2ddd0;
+    --accent: #2e7d5b;
+    --accent-bg: #e8f3ec;
+    --danger: #c0392b;
+    --danger-bg: #fbeae7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+  }
+  header {
+    padding: 32px 40px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 {
+    margin: 0 0 4px 0;
+    font-size: 24px;
+    letter-spacing: -0.01em;
+  }
+  header p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 28px 40px 60px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 22px 24px;
+  }
+  .card h2 {
+    margin: 0 0 4px 0;
+    font-size: 16px;
+  }
+  .card .sub {
+    margin: 0 0 16px 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 100px;
+    letter-spacing: 0.02em;
+  }
+  .badge.live { background: var(--accent-bg); color: var(--accent); }
+  .badge.roadmap { background: #f1efe6; color: var(--muted); }
+  .form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  label {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  input, select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    background: var(--paper);
+  }
+  button {
+    background: var(--ink);
+    color: white;
+    border: none;
+    padding: 9px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.secondary {
+    background: var(--card);
+    color: var(--ink);
+    border: 1px solid var(--border);
+  }
+  button:hover { opacity: 0.9; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .btn-row { display: flex; gap: 10px; margin-top: 4px; }
+  .result {
+    margin-top: 16px;
+    display: none;
+  }
+  .status-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .status-line.ok { color: var(--accent); }
+  .status-line.fail { color: var(--danger); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .svg-frame {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    background: #fdfcf9;
+    overflow-x: auto;
+  }
+  .room-id {
+    font-family: ui-monospace, monospace;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+  .roadmap-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .roadmap-item:last-child { border-bottom: none; }
+  .roadmap-item .label { font-weight: 500; }
+  .roadmap-item .desc { color: var(--muted); font-size: 12.5px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>RoomSpace</h1>
+  <p>AI-assisted room layout planning — live backend demo</p>
+</header>
+
+<main>
+
+  <div class="card">
+    <span class="badge live">LIVE</span>
+    <h2 style="margin-top:8px">1. Create a room</h2>
+    <p class="sub">Calls <code>POST /api/rooms</code> and persists it server-side.</p>
+
+    <div class="form-row">
+      <div>
+        <label>Length (ft)</label>
+        <input id="len" type="number" value="12" />
+      </div>
+      <div>
+        <label>Width (ft)</label>
+        <input id="wid" type="number" value="10" />
+      </div>
+      <div>
+        <label>Room type</label>
+        <input id="rtype" value="bedroom" />
+      </div>
+      <div>
+        <label>Theme</label>
+        <input id="theme" value="minimalist" />
+      </div>
+      <div>
+        <label>Budget (₹)</label>
+        <input id="budget" type="number" value="30000" />
+      </div>
+    </div>
+
+    <button onclick="createRoom()">Create room</button>
+    <div id="room-result" class="room-id"></div>
+  </div>
+
+  <div class="card">
+    <span class="badge live">LIVE</span>
+    <h2 style="margin-top:8px">2. Upload a room photo — object detection</h2>
+    <p class="sub">Calls <code>POST /api/rooms/{id}/photo</code>. Runs local YOLOv8 (no API key, no network call) to detect existing furniture in the photo and attaches the results to the room.</p>
+
+    <div class="btn-row" style="margin-bottom: 14px; align-items: center;">
+      <input type="file" id="photo-input" accept="image/*" />
+      <button onclick="analyzePhoto()">Analyze photo</button>
+    </div>
+
+    <div id="photo-status" style="font-size:13px; color:var(--muted); margin-bottom:10px;"></div>
+    <div id="detected-items"></div>
+    <div id="detection-svg-frame" class="svg-frame" style="display:none; margin-top:14px;">
+      <div id="detection-svg-holder"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <span class="badge live">LIVE</span>
+    <h2 style="margin-top:8px">3. Constraint Engine + SVG renderer</h2>
+    <p class="sub">Calls <code>POST /api/rooms/{id}/validate-layout</code>. The Constraint Engine checks room boundaries, furniture overlap, and walkway clearance; the renderer draws the result — red for anything that fails.</p>
+
+    <div class="btn-row">
+      <button class="secondary" onclick="tryLayout('valid')">Try a feasible layout</button>
+      <button class="secondary" onclick="tryLayout('invalid')">Try an infeasible layout</button>
+    </div>
+
+    <div id="layout-result" class="result">
+      <div id="status-line" class="status-line"></div>
+      <div id="violations"></div>
+      <div class="svg-frame"><div id="svg-holder"></div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:8px">Pipeline roadmap</h2>
+    <p class="sub">Full architecture — pieces below are implemented and unit-tested, awaiting local GPU/dependency setup to demo live.</p>
+
+    <div class="roadmap-item">
+      <div>
+        <div class="label">Object detection</div>
+        <div class="desc">Local YOLOv8, detects existing furniture from a room photo</div>
+      </div>
+      <span class="badge roadmap">BUILT</span>
+    </div>
+    <div class="roadmap-item">
+      <div>
+        <div class="label">Product recommendation</div>
+        <div class="desc">Filter by budget/size/category, then CLIP-based style matching</div>
+      </div>
+      <span class="badge roadmap">BUILT</span>
+    </div>
+    <div class="roadmap-item">
+      <div>
+        <div class="label">Candidate layout generation</div>
+        <div class="desc">Deterministic placement engine feeding the Constraint Engine above</div>
+      </div>
+      <span class="badge roadmap">NEXT</span>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  const API = "";
+  let roomId = null;
+  let roomLengthCm = 365.76, roomWidthCm = 304.8; // default 12ft x 10ft
+
+  async function createRoom() {
+    const len = parseFloat(document.getElementById("len").value);
+    const wid = parseFloat(document.getElementById("wid").value);
+    const body = {
+      dimensions: { length: len, width: wid, unit: "ft" },
+      room_type: document.getElementById("rtype").value,
+      theme: document.getElementById("theme").value,
+      budget: parseFloat(document.getElementById("budget").value),
+    };
+    const res = await fetch(`${API}/api/rooms`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    roomId = data.id;
+    roomLengthCm = len * 30.48;
+    roomWidthCm = wid * 30.48;
+    document.getElementById("room-result").textContent = `Room created — id: ${roomId}`;
+  }
+
+  function examplePlacements(kind) {
+    if (kind === "valid") {
+      return [
+        { item_id: "1", label: "Bed", x_cm: 10, y_cm: 10, width_cm: 150, depth_cm: 200 },
+        { item_id: "2", label: "Wardrobe", x_cm: 250, y_cm: 10, width_cm: 100, depth_cm: 60 },
+      ];
+    }
+    return [
+      { item_id: "1", label: "Bed", x_cm: 10, y_cm: 10, width_cm: 150, depth_cm: 200 },
+      { item_id: "2", label: "Chair", x_cm: 50, y_cm: 50, width_cm: 45, depth_cm: 45 },
+    ];
+  }
+
+  async function tryLayout(kind) {
+    if (!roomId) {
+      await createRoom();
+    }
+    const placements = examplePlacements(kind);
+    const res = await fetch(`${API}/api/rooms/${roomId}/validate-layout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(placements),
+    });
+    const data = await res.json();
+
+    const resultEl = document.getElementById("layout-result");
+    const statusEl = document.getElementById("status-line");
+    const violationsEl = document.getElementById("violations");
+    const svgHolder = document.getElementById("svg-holder");
+
+    resultEl.style.display = "block";
+    if (data.feasible) {
+      statusEl.className = "status-line ok";
+      statusEl.innerHTML = `<span class="dot"></span> Feasible — no violations`;
+      violationsEl.innerHTML = "";
+    } else {
+      statusEl.className = "status-line fail";
+      statusEl.innerHTML = `<span class="dot"></span> Infeasible — ${data.violations.length} violation(s)`;
+      violationsEl.innerHTML = data.violations.map(v => `<div style="color:var(--danger);font-size:13px;margin-bottom:4px">• ${v}</div>`).join("");
+    }
+    svgHolder.innerHTML = data.svg;
+  }
+
+  async function analyzePhoto() {
+    if (!roomId) {
+      await createRoom();
+    }
+    const fileInput = document.getElementById("photo-input");
+    const statusEl = document.getElementById("photo-status");
+    const itemsEl = document.getElementById("detected-items");
+
+    if (!fileInput.files.length) {
+      statusEl.textContent = "Choose a photo first.";
+      statusEl.style.color = "var(--danger)";
+      return;
+    }
+
+    statusEl.textContent = "Running detection… (first run downloads YOLO weights, can take a minute)";
+    statusEl.style.color = "var(--muted)";
+    itemsEl.innerHTML = "";
+
+    const form = new FormData();
+    form.append("photo", fileInput.files[0]);
+
+    try {
+      const res = await fetch(`${API}/api/rooms/${roomId}/photo`, {
+        method: "POST",
+        body: form,
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || res.statusText);
+      }
+      const data = await res.json();
+      if (!data.furniture || data.furniture.length === 0) {
+        statusEl.textContent = "No furniture detected above the confidence threshold.";
+        statusEl.style.color = "var(--danger)";
+        return;
+      }
+      statusEl.textContent = `Detected ${data.furniture.length} item(s):`;
+      statusEl.style.color = "var(--accent)";
+      itemsEl.innerHTML = data.furniture.map(item => `
+        <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border); font-size:13px;">
+          <div><strong>${item.label}</strong> <span style="color:var(--muted)">(${item.type})</span></div>
+          <div style="color:var(--muted)">${item.width_cm}×${item.depth_cm}cm — ${item.approximate_zone || "zone unknown"}</div>
+        </div>
+      `).join("");
+
+      // Pull a rough floor plan built from what was just detected.
+      const layoutRes = await fetch(`${API}/api/rooms/${roomId}/layout-from-detection`);
+      const layoutData = await layoutRes.json();
+      const svgFrame = document.getElementById("detection-svg-frame");
+      const svgHolder = document.getElementById("detection-svg-holder");
+      if (layoutData.svg) {
+        svgFrame.style.display = "block";
+        svgHolder.innerHTML = layoutData.svg;
+      }
+    } catch (err) {
+      statusEl.textContent = `Detection failed: ${err.message}`;
+      statusEl.style.color = "var(--danger)";
+    }
+  }
+</script>
+
+</body>
+</html>
