@@ -5,7 +5,7 @@ from fastapi.responses import Response
 
 from app.schemas.layout import Placement
 from app.schemas.room import RoomCreate, RoomResponse
-from app.services import constraint_engine, layout_renderer, room_analysis, room_store
+from app.services import constraint_engine, layout_renderer, room_analysis, room_store, zone_placement, units
 
 
 router = APIRouter(prefix="/api/rooms", tags=["Rooms"])
@@ -33,10 +33,10 @@ def get_room(room_id: str):
 @router.post("/{room_id}/photo", response_model=RoomResponse)
 async def analyze_room_photo(room_id: str, photo: UploadFile = File(...)):
     room = room_store.get(room_id)
-    furniture = await room_analysis.detect_furniture(photo)
+    room_length_cm, room_width_cm = units.room_dimensions_cm(room.dimensions)
+    furniture = await room_analysis.detect_furniture(photo, room_length_cm, room_width_cm)
     room.furniture = furniture
     return room_store.save(room)
-
 
 @router.post("/{room_id}/validate-layout")
 def validate_layout(room_id: str, placements: list[Placement]):
@@ -52,3 +52,21 @@ def validate_layout_preview(room_id: str, placements: list[Placement]):
     _, violations = constraint_engine.validate_layout(room.dimensions, placements)
     svg = layout_renderer.render_layout_svg(room.dimensions, placements, violations)
     return Response(content=svg, media_type="image/svg+xml")
+
+@router.get("/{room_id}/layout-from-detection")
+def layout_from_detection(room_id: str):
+    """Turns whatever furniture was detected by /photo into a rough
+    floor plan: maps each item's detected zone to an approximate
+    position, then runs it through the same Constraint Engine and
+    renderer as /validate-layout. Not an optimized layout -- see
+    zone_placement.py's docstring -- but it makes detection visually
+    verifiable without the user typing coordinates by hand.
+    """
+    room = room_store.get(room_id)
+    if not room.furniture:
+        return {"feasible": True, "violations": [], "svg": None, "message": "No furniture detected yet."}
+
+    placements = zone_placement.placements_from_detection(room.dimensions, room.furniture)
+    feasible, violations = constraint_engine.validate_layout(room.dimensions, placements)
+    svg = layout_renderer.render_layout_svg(room.dimensions, placements, violations)
+    return {"feasible": feasible, "violations": violations, "svg": svg}
