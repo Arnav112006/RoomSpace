@@ -9,8 +9,6 @@ export type FurnitureType =
   | "desk"
   | "sofa"
   | "shelf"
-  | "window"
-  | "door"
   | "other";
 
 export interface FurnitureItem {

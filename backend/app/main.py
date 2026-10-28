@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -30,6 +31,15 @@ app = FastAPI(
 )
 
 app.include_router(rooms_router)
+
+# The Vite dev server runs on a different origin, so the browser needs
+# explicit permission to call this API. Add any other dev origin here.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
 
 

@@ -2,7 +2,7 @@ import { useRoomStore } from "../../store/roomStore";
 import { Card, EmptyState, SectionHeading } from "../ui/Primitives";
 import type { FurnitureType } from "../../types";
 
-const TYPE_OPTIONS: FurnitureType[] = ["bed", "wardrobe", "table", "chair", "desk", "sofa", "shelf", "window", "door", "other"];
+const TYPE_OPTIONS: FurnitureType[] = ["bed", "wardrobe", "table", "chair", "desk", "sofa", "shelf", "other"];
 const ZONE_OPTIONS = ["north wall", "south wall", "east wall", "west wall", "center", "left corner", "right corner"];
 
 export function AnalysisStage() {
