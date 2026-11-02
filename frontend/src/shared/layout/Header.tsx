@@ -1,4 +1,4 @@
-import { useRoomStore } from "../../store/roomStore";
+import { useRoomStore } from "@/shared/store/roomStore";
 
 export function Header() {
   const backendOnline = useRoomStore((s) => s.backendOnline);
@@ -6,7 +6,7 @@ export function Header() {
   const room = useRoomStore((s) => s.room);
 
   return (
-    <header className="border-b border-ink/10 bg-ink text-paper">
+    <header className="border-b border-white/10 bg-ink-900/95 text-paper backdrop-blur-md">
       <div className="max-w-[1400px] mx-auto px-6 py-3 flex items-center justify-between gap-4">
         <button onClick={reset} className="flex items-center gap-3 group">
           <span className="h-7 w-7 border border-brass-400 flex items-center justify-center">

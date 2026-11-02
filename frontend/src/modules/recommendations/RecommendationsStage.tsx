@@ -1,8 +1,8 @@
 import { useMemo } from "react";
-import { useRoomStore } from "../../store/roomStore";
-import { recommendForCategory } from "../../lib/catalog";
-import type { ProductCategory } from "../../types";
-import { Badge, Card, EmptyState, SectionHeading } from "../ui/Primitives";
+import { useRoomStore } from "@/shared/store/roomStore";
+import { recommendForCategory } from "@/shared/lib/catalog";
+import type { ProductCategory } from "@/shared/types";
+import { Badge, Card, EmptyState, SectionHeading } from "@/shared/ui/Primitives";
 
 const CATEGORY_KEYWORDS: [ProductCategory, string[]][] = [
   ["bed", ["bed"]],
@@ -83,7 +83,7 @@ export function RecommendationsStage() {
                     rel="noreferrer"
                     className="panel p-3 block hover:border-brass-400 transition-colors"
                   >
-                    <div className="h-24 bg-paper-dim rounded-sm mb-2 flex items-center justify-center text-ink-muted text-[11px]">
+                    <div className="h-24 bg-ink-800 rounded-sm mb-2 flex items-center justify-center text-ink-muted text-[11px]">
                       {product.image_url}
                     </div>
                     <p className="text-sm font-medium leading-tight">{product.name}</p>
@@ -102,7 +102,7 @@ export function RecommendationsStage() {
         </div>
       )}
 
-      <div className="mt-8 border-t border-ink/10 pt-5">
+      <div className="mt-8 border-t border-white/10 pt-5">
         <button className="btn-ghost" onClick={reset}>
           Start a new room
         </button>

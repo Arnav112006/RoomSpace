@@ -1,3 +1,39 @@
-26-08-2026 : 
-We finalized the LaTeX project proposal for RoomSpace, a constraint-based room planning and decoration recommendation system. 
-The document outlines the problem statement, proposed web-based solution, system architecture, spatial constraint logic, evaluation criteria, scalability, risks, and planned deliverables.
+26-08-2026 :
+Finalized the LaTeX project proposal for RoomSpace, a constraint-based room planning and decoration recommendation system. The proposal defines the problem statement, system workflow, web architecture, spatial constraints, evaluation criteria, scalability plan, risks, and project deliverables.
+Challenge: The initial scope was broad because it included room analysis, layout generation, visualization, commands, versioning, and product recommendations.
+Resolution: We divided the project into separate modules and prioritized the core room-model and layout workflow before advanced machine-learning and recommendation features.
+
+02-09-2026 :
+Finalized the high-level system workflow and repository structure for RoomSpace. The repository was organized into frontend, backend, ML, documentation, and supporting modules. We also started the backend using FastAPI and created the initial Room data schemas with validation for room dimensions, room type, theme, occasion, and budget.
+Challenge: The backend needed a clear and validated data structure before database persistence and spatial-layout logic could be implemented.
+Resolution: We created validated Room schemas and implemented a Room Creation API that generates a UUID for every valid room request. A health-check endpoint and Swagger interface were also added for API inspection and manual testing.
+
+09-09-2026 :
+Developed a simple frontend demonstration for RoomSpace. The frontend currently demonstrates the planned user flow and uses local fallback data where necessary. Work was also started on identifying and preprocessing a suitable product-recommendation dataset.
+Challenge: The frontend could not reliably connect to the backend API during initial integration. The product-recommendation dataset also required filtering and preprocessing before it could be used.
+Resolution: Local fallback data was used temporarily so that frontend development could continue without blocking the demonstration. For the dataset, we began identifying relevant product attributes such as category, style, dimensions, price, and product information for later preprocessing.
+
+16-09-2026 :
+Completed the initial backend foundation and finalized the machine-learning approach. The backend now includes FastAPI setup, validated Room schemas, a UUID-based Room Creation API, a health-check endpoint, and Swagger availability for testing. The project workflow and architecture are finalized.
+Challenge: It was necessary to decide whether custom model training should be started immediately or deferred until the core room-planning workflow was stable.
+Resolution: We decided to begin with a pretrained YOLO model for room-object detection and fine-tune it only if required. CLIP was selected for fine-tuning specifically for product recommendation. The next tasks are database persistence, the structured Room Model, Layout Engine, constraint validation, SVG visualization, user commands, versioning, and the CLIP-based recommendation module.
+
+06-10-2026:
+Improved room analysis to estimate furniture dimensions using the known room size. Added a local YOLOv8 model for detecting objects in room images.
+Challenge: Detected furniture needed realistic dimensions to support useful room planning.
+Resolution: Room analysis now estimates furniture dimensions relative to the known room size, while YOLOv8 provides local object detection.
+
+13-10-2026:
+Added an endpoint for generating a room layout from detected furniture.
+Challenge: Object detection alone did not provide a usable room plan.
+Resolution: The new endpoint connects detected furniture to the layout-generation workflow.
+
+20-10-2026:
+Introduced a zone placement service to convert detected furniture into room placements.
+Challenge: Detected objects needed to be translated into structured placements for layout generation.
+Resolution: The placement service maps detected furniture to placements within room zones.
+
+27-10-2026:
+Implemented a live-demo HTML page for interacting with the backend.
+Challenge: Backend features needed a straightforward way to demonstrate and explore the user workflow.
+Resolution: The live demo page lets users interact with the backend and try the room-planning flow.

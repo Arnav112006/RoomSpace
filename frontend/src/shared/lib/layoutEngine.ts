@@ -1,4 +1,4 @@
-import type { FurnitureItem, Layout, Placement, RoomDimensions, ScoredLayout } from "../types";
+import type { FurnitureItem, Layout, Placement, RoomDimensions, ScoredLayout } from "@/shared/types";
 import { roomDimensionsCm } from "./units";
 import { validateLayoutLocal } from "./constraintEngine";
 

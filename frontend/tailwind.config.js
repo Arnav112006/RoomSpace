@@ -4,36 +4,46 @@ export default {
   theme: {
     extend: {
       colors: {
-        paper: {
-          DEFAULT: "#EEF1EC",
-          dim: "#E3E7DF",
-        },
+        // Base surfaces — layered near-blacks, not flat #000
         ink: {
-          DEFAULT: "#151A21",
-          soft: "#232A33",
-          muted: "#5B6470",
+          DEFAULT: "#0B0E13",
+          950: "#07090C",
+          900: "#0F131A",
+          800: "#161B24",
+          700: "#1E2530",
+          muted: "#8B93A3",
         },
+        paper: {
+          DEFAULT: "#EDEFF4",
+          dim: "#C7CCD8",
+        },
+        // Blueprint blue — desaturated, glows rather than shouts
         blueprint: {
-          50: "#EAF1F8",
-          200: "#B7CFE3",
-          400: "#5C87AC",
-          600: "#2A5C8A",
-          700: "#1F4468",
-          900: "#132B44",
+          200: "#7FA8CE",
+          300: "#5C87AC",
+          400: "#4A7CA8",
+          500: "#3E7BB0",
+          600: "#5B9BD4",
+          700: "#79B2E6",
         },
+        // Brass — warm metal accent for primary actions
         brass: {
-          200: "#EAD8B4",
+          200: "#E8D3A0",
+          300: "#DCB876",
           400: "#CBA25C",
-          600: "#B8863B",
-          700: "#8F672B",
+          500: "#C9A24D",
+          600: "#D8B463",
+          700: "#E8CB86",
         },
         moss: {
-          500: "#3C7A5D",
-          600: "#2E6049",
+          400: "#5FAE85",
+          500: "#4C9C72",
+          600: "#3C7A5D",
         },
         clay: {
-          500: "#B23B3B",
-          600: "#953030",
+          400: "#E08A7A",
+          500: "#D97662",
+          600: "#B23B3B",
         },
       },
       fontFamily: {
@@ -42,10 +52,15 @@ export default {
         mono: ["'IBM Plex Mono'", "monospace"],
       },
       backgroundImage: {
-        grid: "linear-gradient(to right, rgba(42,92,138,0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(42,92,138,0.08) 1px, transparent 1px)",
+        grid: "linear-gradient(to right, rgba(91,155,212,0.06) 1px, transparent 1px), linear-gradient(to bottom, rgba(91,155,212,0.06) 1px, transparent 1px)",
+        "radial-fade": "radial-gradient(circle at 50% 0%, rgba(91,155,212,0.10), transparent 60%)",
       },
       backgroundSize: {
-        grid: "24px 24px",
+        grid: "28px 28px",
+      },
+      boxShadow: {
+        panel: "0 1px 0 0 rgba(255,255,255,0.04) inset, 0 12px 32px -16px rgba(0,0,0,0.6)",
+        glow: "0 0 0 1px rgba(91,155,212,0.25), 0 0 24px -4px rgba(91,155,212,0.35)",
       },
     },
   },

@@ -1,5 +1,5 @@
-import { STAGE_META } from "../../types";
-import type { WizardStep } from "../../store/roomStore";
+import { STAGE_META } from "@/shared/types";
+import type { WizardStep } from "@/shared/store/roomStore";
 
 const STEP_ORDER: WizardStep[] = ["input", "analysis", "model", "studio", "recommendations"];
 
@@ -31,7 +31,7 @@ export function StageRail({ current, hasPhoto }: { current: WizardStep; hasPhoto
               <div
                 className={`flex items-start gap-3 rounded-sm px-2.5 py-2 border-l-2 ${
                   isCurrent
-                    ? "border-blueprint-600 bg-blueprint-50"
+                    ? "border-blueprint-500 bg-blueprint-500/10"
                     : isDone
                     ? "border-moss-500/50"
                     : "border-transparent"
@@ -43,12 +43,12 @@ export function StageRail({ current, hasPhoto }: { current: WizardStep; hasPhoto
                       ? "bg-blueprint-600 text-paper border-blueprint-600"
                       : isDone
                       ? "bg-moss-500 text-paper border-moss-500"
-                      : "text-ink-muted border-ink/20"
+                      : "text-ink-muted border-white/20"
                   }`}
                 >
                   {isDone ? "✓" : stage.id}
                 </span>
-                <span className={`text-[13px] leading-tight ${isCurrent ? "text-ink font-medium" : "text-ink-muted"}`}>
+                <span className={`text-[13px] leading-tight ${isCurrent ? "text-paper font-medium" : "text-ink-muted"}`}>
                   {stage.title}
                 </span>
               </div>

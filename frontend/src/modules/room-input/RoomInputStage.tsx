@@ -1,6 +1,6 @@
 import { useRef } from "react";
-import { useRoomStore } from "../../store/roomStore";
-import { Card, Field, SectionHeading, Spinner } from "../ui/Primitives";
+import { useRoomStore } from "@/shared/store/roomStore";
+import { Card, Field, SectionHeading, Spinner } from "@/shared/ui/Primitives";
 
 const ROOM_TYPES = ["Bedroom", "Living Room", "Home Office", "Dining Room", "Kids Room", "Studio Apartment"];
 const THEMES = ["Modern", "Minimalist", "Scandinavian", "Industrial", "Traditional", "Bohemian"];
@@ -35,7 +35,7 @@ export function RoomInputStage() {
           <p className="field-label mb-2">Room photo (optional)</p>
           <div className="flex items-center gap-4">
             <div
-              className="h-24 w-32 shrink-0 rounded-sm border border-dashed border-ink/25 bg-paper-dim flex items-center justify-center overflow-hidden cursor-pointer"
+              className="h-24 w-32 shrink-0 rounded-sm border border-dashed border-white/25 bg-ink-800 flex items-center justify-center overflow-hidden cursor-pointer"
               onClick={() => fileInput.current?.click()}
             >
               {photoPreviewUrl ? (
@@ -56,7 +56,7 @@ export function RoomInputStage() {
                 {photoPreviewUrl ? "Change photo" : "Upload a photo"}
               </button>
               {photoPreviewUrl && (
-                <button type="button" className="text-xs text-clay-600 text-left" onClick={() => setPhotoFile(null)}>
+                <button type="button" className="text-xs text-clay-400 text-left" onClick={() => setPhotoFile(null)}>
                   Remove photo, start empty
                 </button>
               )}
@@ -153,7 +153,7 @@ export function RoomInputStage() {
                   className={`px-3 py-1.5 rounded-sm border text-sm transition-colors ${
                     active
                       ? "bg-blueprint-700 text-paper border-blueprint-700"
-                      : "bg-white/60 text-ink border-ink/15 hover:border-ink/40"
+                      : "bg-white/[0.03] text-paper border-white/15 hover:border-white/35"
                   }`}
                 >
                   {opt.label}
@@ -164,7 +164,7 @@ export function RoomInputStage() {
         </div>
 
         {createError && (
-          <p className="text-sm text-clay-600 bg-clay-500/10 border border-clay-500/30 rounded-sm px-3 py-2">
+          <p className="text-sm text-clay-400 bg-clay-500/10 border border-clay-500/30 rounded-sm px-3 py-2">
             {createError}
           </p>
         )}

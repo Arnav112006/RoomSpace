@@ -1,7 +1,10 @@
-import { useRoomStore } from "../../store/roomStore";
-import { Badge } from "../ui/Primitives";
+import { useRoomStore } from "@/shared/store/roomStore";
+import { Badge } from "@/shared/ui/Primitives";
+import type { ScoredLayout } from "@/shared/types";
 
-const SCORE_LABELS: { key: keyof import("../../types").ScoredLayout["scores"]; label: string }[] = [
+type ScoreKey = keyof ScoredLayout["scores"];
+
+const SCORE_LABELS: { key: ScoreKey; label: string }[] = [
   { key: "aesthetic", label: "Aesthetic" },
   { key: "themeAlignment", label: "Theme" },
   { key: "spaceUtilization", label: "Space use" },
@@ -18,7 +21,7 @@ export function CandidatePanel() {
       <div className="flex items-center justify-between">
         <p className="label-eyebrow">Ranked candidates</p>
         {infeasibleCount > 0 && (
-          <span className="text-[11px] text-clay-600">{infeasibleCount} discarded (infeasible)</span>
+          <span className="text-[11px] text-clay-400">{infeasibleCount} discarded (infeasible)</span>
         )}
       </div>
 
@@ -35,7 +38,7 @@ export function CandidatePanel() {
               key={scored.layout.id}
               onClick={() => selectLayout(scored.layout.id)}
               className={`w-full text-left rounded-sm border p-3 transition-colors ${
-                isSelected ? "border-blueprint-600 bg-blueprint-50" : "border-ink/12 bg-white/60 hover:border-ink/30"
+                isSelected ? "border-blueprint-500 bg-blueprint-500/10" : "border-white/12 bg-white/[0.03] hover:border-white/30"
               }`}
             >
               <div className="flex items-center justify-between mb-2">
@@ -47,7 +50,7 @@ export function CandidatePanel() {
               <div className="grid grid-cols-5 gap-1">
                 {SCORE_LABELS.map(({ key, label }) => (
                   <div key={key} title={label} className="flex flex-col items-center gap-0.5">
-                    <div className="h-8 w-full bg-ink/8 rounded-sm relative overflow-hidden">
+                    <div className="h-8 w-full bg-white/8 rounded-sm relative overflow-hidden">
                       <div
                         className="absolute bottom-0 left-0 right-0 bg-blueprint-600"
                         style={{ height: `${Math.round(scored.scores[key] * 100)}%` }}

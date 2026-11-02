@@ -1,5 +1,5 @@
-import { useRoomStore } from "../../store/roomStore";
-import { Badge } from "../ui/Primitives";
+import { useRoomStore } from "@/shared/store/roomStore";
+import { Badge } from "@/shared/ui/Primitives";
 
 export function VersionHistory() {
   const { versions, restoreVersion } = useRoomStore();
@@ -12,9 +12,9 @@ export function VersionHistory() {
       ) : (
         <ol className="space-y-2 max-h-52 overflow-y-auto">
           {versions.map((v, i) => (
-            <li key={v.id} className="flex items-center justify-between gap-2 border-l-2 border-ink/10 pl-3 py-1">
+            <li key={v.id} className="flex items-center justify-between gap-2 border-l-2 border-white/10 pl-3 py-1">
               <div className="min-w-0">
-                <p className="text-xs text-ink truncate">{v.note || v.label}</p>
+                <p className="text-xs text-paper truncate">{v.note || v.label}</p>
                 <p className="text-[10px] text-ink-muted font-mono">
                   {new Date(v.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </p>
