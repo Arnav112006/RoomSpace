@@ -12,8 +12,6 @@ class FurnitureType(str, Enum):
     DESK = "desk"
     SOFA = "sofa"
     SHELF = "shelf"
-    WINDOW = "window"
-    DOOR = "door"
     OTHER = "other"
 
 

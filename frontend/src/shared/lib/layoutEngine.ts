@@ -82,9 +82,11 @@ function wallSpan(wall: WallSide, lengthCm: number, widthCm: number): number {
 
 /**
  * Runs one placement strategy over the furniture list, returning a
- * single candidate's placements. Fixed items (doors, windows, existing
- * furniture the user marked immovable) are anchored to their given
- * zone first; movable items are then distributed around them.
+ * single candidate's placements. Fixed items (existing furniture the
+ * user marked immovable) are anchored to their given zone first;
+ * movable items are then distributed around them. Openings (doors,
+ * windows) are not items and are never placed here — see
+ * docs/room-model.md.
  */
 function buildCandidate(
   items: WorkingItem[],

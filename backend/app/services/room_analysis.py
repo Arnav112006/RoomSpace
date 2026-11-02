@@ -6,12 +6,16 @@ Known limitation: COCO has no "door" or "window" classes, so those are
 never auto-detected here. They stay a manual step in the preference
 form until/unless a custom-trained or fine-tuned model replaces this.
 
-Known simplification: YOLO gives pixel bounding boxes, not real-world
-centimetres. A single 2D photo can't derive true dimensions without a
-calibration reference (a known-size object, multiple camera angles,
-or depth data), so this module does not attempt to. Instead it assigns
-per-type default dimensions that the user can edit in the UI. Treat
-these as reasonable starting values, not measurements.
+Sizing: when the room's real dimensions are known (passed in from the
+room the photo belongs to), each item's width/depth is estimated
+proportionally from how much of the photo's frame its bounding box
+occupies, scaled against the room's actual length/width in cm. This
+assumes the photo roughly captures the room's full width -- a tight
+crop or steep angle will skew the estimate, same limitation any
+single-photo approach has without a calibration reference. When room
+dimensions aren't provided, or the proportional estimate comes out
+implausibly small, a per-type default is used instead. Either way,
+these are starting values for the user to correct, not measurements.
 """
 
 from functools import lru_cache
@@ -35,8 +39,9 @@ _COCO_TO_FURNITURE_TYPE: dict[str, FurnitureType] = {
     "book": FurnitureType.SHELF,  # weak proxy signal for a bookshelf area
 }
 
-# Reasonable starting dimensions per type, in centimetres. Editable by
-# the user after detection — these are defaults, not measurements.
+# Fallback dimensions per type, in centimetres -- used when room
+# dimensions aren't available or the proportional estimate is
+# implausible. Editable by the user after detection either way.
 _DEFAULT_DIMENSIONS_CM: dict[FurnitureType, tuple[float, float]] = {
     FurnitureType.BED: (150, 200),
     FurnitureType.WARDROBE: (120, 60),
@@ -49,6 +54,7 @@ _DEFAULT_DIMENSIONS_CM: dict[FurnitureType, tuple[float, float]] = {
 }
 
 _CONFIDENCE_THRESHOLD = 0.4
+_MIN_PLAUSIBLE_DIMENSION_CM = 20.0  # below this, the proportional estimate is discarded
 
 
 @lru_cache(maxsize=1)
@@ -82,7 +88,38 @@ def _zone_for_box(x_center_frac: float, y_center_frac: float) -> str:
     return f"{y_zone} {x_zone} of the frame"
 
 
-def _results_to_furniture(result, image_width: int, image_height: int) -> list[FurnitureItem]:
+def _estimate_dimensions_cm(
+    furniture_type: FurnitureType,
+    box_width_frac: float,
+    box_height_frac: float,
+    room_length_cm: float | None,
+    room_width_cm: float | None,
+) -> tuple[float, float]:
+    """Scales a bounding box's fraction of the frame against the
+    room's real dimensions. Falls back to the per-type default if room
+    dimensions weren't given, or if the result is implausibly small
+    (a common symptom of a partially-occluded or distant object)."""
+    default_w, default_d = _DEFAULT_DIMENSIONS_CM[furniture_type]
+
+    if room_length_cm is None or room_width_cm is None:
+        return default_w, default_d
+
+    estimated_w = box_width_frac * room_length_cm
+    estimated_d = box_height_frac * room_width_cm
+
+    if estimated_w < _MIN_PLAUSIBLE_DIMENSION_CM or estimated_d < _MIN_PLAUSIBLE_DIMENSION_CM:
+        return default_w, default_d
+
+    return round(estimated_w, 1), round(estimated_d, 1)
+
+
+def _results_to_furniture(
+    result,
+    image_width: int,
+    image_height: int,
+    room_length_cm: float | None = None,
+    room_width_cm: float | None = None,
+) -> list[FurnitureItem]:
     """Converts one ultralytics Results object into FurnitureItems.
     Pulled out of detect_furniture() so it can be unit-tested against
     a hand-built fake Results object without loading the real model.
@@ -102,8 +139,12 @@ def _results_to_furniture(result, image_width: int, image_height: int) -> list[F
         x1, y1, x2, y2 = [float(v) for v in box.xyxy[0]]
         x_center_frac = ((x1 + x2) / 2) / image_width
         y_center_frac = ((y1 + y2) / 2) / image_height
+        box_width_frac = (x2 - x1) / image_width
+        box_height_frac = (y2 - y1) / image_height
 
-        width_cm, depth_cm = _DEFAULT_DIMENSIONS_CM[furniture_type]
+        width_cm, depth_cm = _estimate_dimensions_cm(
+            furniture_type, box_width_frac, box_height_frac, room_length_cm, room_width_cm
+        )
 
         items.append(
             FurnitureItem(
@@ -120,10 +161,18 @@ def _results_to_furniture(result, image_width: int, image_height: int) -> list[F
     return items
 
 
-async def detect_furniture(photo: UploadFile) -> list[FurnitureItem]:
+async def detect_furniture(
+    photo: UploadFile,
+    room_length_cm: float | None = None,
+    room_width_cm: float | None = None,
+) -> list[FurnitureItem]:
     """Runs local YOLO detection on the uploaded photo and returns one
     FurnitureItem per recognized object above the confidence threshold.
     Doors and windows are never returned here — see module docstring.
+
+    If room_length_cm/room_width_cm are given (the room this photo
+    belongs to), item sizes are estimated proportionally from the
+    photo; otherwise per-type defaults are used.
     """
     image_bytes = await photo.read()
     if not image_bytes:
@@ -144,4 +193,6 @@ async def detect_furniture(photo: UploadFile) -> list[FurnitureItem]:
     if not results:
         return []
 
-    return _results_to_furniture(results[0], image.width, image.height)
+    return _results_to_furniture(
+        results[0], image.width, image.height, room_length_cm, room_width_cm
+    )

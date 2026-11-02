@@ -28,8 +28,6 @@ const TYPE_SYNONYMS: Record<FurnitureType, string[]> = {
   desk: ["desk", "workstation"],
   sofa: ["sofa", "couch", "settee"],
   shelf: ["shelf", "bookshelf", "shelving", "bookcase"],
-  window: ["window"],
-  door: ["door"],
   other: [],
 };
 
