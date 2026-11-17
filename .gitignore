@@ -23,3 +23,5 @@ ml/models/
 
 # VS Code
 .vscode/
+# YOLO prediction output (ultralytics creates runs/detect/predict*)
+runs/

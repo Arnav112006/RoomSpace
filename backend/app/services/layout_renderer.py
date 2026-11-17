@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from app.schemas.layout import Placement
 from app.schemas.opening import Opening, OpeningKind, WallSide
 from app.schemas.room import RoomDimensions
-from app.services.constraint_engine import door_hinge_point, opening_span
+from app.services.constraint_engine import door_hinge_point, opening_span, wall_point
 from app.services.units import room_dimensions_cm
 
 _SCALE = 0.5  # px per cm
@@ -40,20 +40,10 @@ class OpeningShape:
     sweep_clockwise: bool = False
 
 
-def _wall_point(wall: WallSide, along: float, length_cm: float, width_cm: float) -> Point:
-    if wall is WallSide.NORTH:
-        return along, 0.0
-    if wall is WallSide.SOUTH:
-        return along, width_cm
-    if wall is WallSide.WEST:
-        return 0.0, along
-    return length_cm, along
-
-
 def opening_shape(o: Opening, length_cm: float, width_cm: float) -> OpeningShape:
     s0, s1 = opening_span(o)
-    start = _wall_point(o.wall, s0, length_cm, width_cm)
-    end = _wall_point(o.wall, s1, length_cm, width_cm)
+    start = wall_point(o.wall, s0, length_cm, width_cm)
+    end = wall_point(o.wall, s1, length_cm, width_cm)
     if o.kind is OpeningKind.WINDOW:
         return OpeningShape(kind=o.kind, start=start, end=end)
 

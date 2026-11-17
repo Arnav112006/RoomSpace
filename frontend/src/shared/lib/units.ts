@@ -8,11 +8,3 @@ export function roomDimensionsCm(dimensions: RoomDimensions): [number, number] {
   return [dimensions.length * factor, dimensions.width * factor];
 }
 
-export function cmToUnit(cm: number, unit: string): number {
-  const factor = UNIT_TO_CM[unit] ?? 1;
-  return cm / factor;
-}
-
-export function formatCm(cm: number): string {
-  return `${Math.round(cm)} cm`;
-}

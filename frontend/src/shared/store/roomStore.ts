@@ -13,9 +13,10 @@ import type {
 } from "@/shared/types";
 import { api, ApiError } from "@/shared/lib/api";
 import { generateCandidates, rankCandidates, type LayoutStyle } from "@/shared/lib/layoutEngine";
-import { DEFAULT_MIN_CLEARANCE_CM, openingFitErrors, validateLayoutLocal } from "@/shared/lib/constraintEngine";
+import { MIN_CLEARANCE_CM, openingFitErrors, validateLayoutLocal } from "@/shared/lib/constraintEngine";
 import { parseCommand, describeAction } from "@/shared/lib/commandParser";
 import { roomDimensionsCm } from "@/shared/lib/units";
+import { defaultFootprint } from "@/shared/lib/furniture";
 
 export type WizardStep = "input" | "analysis" | "model" | "studio" | "recommendations";
 
@@ -242,19 +243,10 @@ export const useRoomStore = create<RoomStoreState>((set, get) => ({
       // Seed manual furniture entries for anything the user asked for
       // that vision detection didn't already surface (or when there
       // was no photo at all — the empty-room path).
-      const defaultDims: Record<string, [number, number]> = {
-        bed: [150, 200],
-        wardrobe: [120, 60],
-        table: [140, 80],
-        chair: [45, 45],
-        desk: [120, 60],
-        sofa: [180, 90],
-        shelf: [90, 30],
-      };
       for (const need of s.draftFurnitureNeeds) {
         const already = furniture.some((f) => f.type === need);
         if (!already) {
-          const [w, d] = defaultDims[need] || [60, 60];
+          const [w, d] = defaultFootprint(need);
           furniture.push({
             type: need as FurnitureItem["type"],
             label: need.charAt(0).toUpperCase() + need.slice(1),
@@ -382,7 +374,7 @@ export const useRoomStore = create<RoomStoreState>((set, get) => ({
         usingRemoteValidation: true,
       });
     } catch {
-      const local = validateLayoutLocal(s.room.dimensions, placements, DEFAULT_MIN_CLEARANCE_CM, s.room.openings ?? []);
+      const local = validateLayoutLocal(s.room.dimensions, placements, MIN_CLEARANCE_CM, s.room.openings ?? []);
       set({
         activePlacements: placements,
         activeFeasible: local.feasible,
@@ -447,11 +439,7 @@ export const useRoomStore = create<RoomStoreState>((set, get) => ({
         }
       });
     } else if (action.kind === "add") {
-      const defaultDims: Record<string, [number, number]> = {
-        bed: [150, 200], wardrobe: [120, 60], table: [140, 80], chair: [45, 45],
-        desk: [120, 60], sofa: [180, 90], shelf: [90, 30],
-      };
-      const [w, d] = defaultDims[action.itemType] || [60, 60];
+      const [w, d] = defaultFootprint(action.itemType);
       const label = `${action.itemType.charAt(0).toUpperCase()}${action.itemType.slice(1)} ${nextPlacements.length + 1}`;
       nextPlacements.push({
         item_id: newId("item"),

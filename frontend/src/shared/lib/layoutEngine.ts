@@ -1,6 +1,6 @@
 import type { FurnitureItem, Layout, Opening, Placement, RoomDimensions, ScoredLayout } from "@/shared/types";
 import { roomDimensionsCm } from "./units";
-import { DEFAULT_MIN_CLEARANCE_CM, conflictingOpening, validateLayoutLocal } from "./constraintEngine";
+import { MIN_CLEARANCE_CM, conflictingOpening, validateLayoutLocal } from "./constraintEngine";
 
 // ---------------------------------------------------------------------
 // Stage 4 — Candidate Layout Generation
@@ -220,7 +220,7 @@ export function generateCandidates(
 
   return styles.map((style) => {
     const placements = buildCandidate(items, dimensions, style, openings);
-    const { feasible, violations } = validateLayoutLocal(dimensions, placements, DEFAULT_MIN_CLEARANCE_CM, openings);
+    const { feasible, violations } = validateLayoutLocal(dimensions, placements, MIN_CLEARANCE_CM, openings);
     return {
       style,
       layout: { id: `${roomId}-${style}`, room_id: roomId, placements, feasible, violations },

@@ -1,27 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRoomStore } from "@/shared/store/roomStore";
 import { productImageUrl, recommendForCategory } from "@/shared/lib/catalog";
+import { furnitureTypeIn } from "@/shared/lib/furniture";
 import { api, ApiError } from "@/shared/lib/api";
 import type { Product, ProductCategory } from "@/shared/types";
 import { Badge, Card, EmptyState, SectionHeading, Spinner } from "@/shared/ui/Primitives";
 
-const CATEGORY_KEYWORDS: [ProductCategory, string[]][] = [
-  ["bed", ["bed"]],
-  ["wardrobe", ["wardrobe", "closet"]],
-  ["sofa", ["sofa", "couch"]],
-  ["desk", ["desk"]],
-  ["table", ["table"]],
-  ["chair", ["chair"]],
-  ["shelf", ["shelf", "bookcase"]],
-  ["lamp", ["lamp"]],
-  ["decor", ["decor", "plant"]],
-];
-
+/** Product category for a placement: a furniture type, or lamp/decor. */
 function guessCategory(label: string): ProductCategory {
+  const furniture = furnitureTypeIn(label);
+  if (furniture) return furniture;
   const lower = label.toLowerCase();
-  for (const [category, words] of CATEGORY_KEYWORDS) {
-    if (words.some((w) => lower.includes(w))) return category;
-  }
+  if (lower.includes("lamp")) return "lamp";
+  if (lower.includes("decor") || lower.includes("plant")) return "decor";
   return "other";
 }
 

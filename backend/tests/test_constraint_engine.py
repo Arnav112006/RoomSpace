@@ -10,7 +10,7 @@ import math
 import pytest
 
 from app.services.constraint_engine import (
-    DEFAULT_MIN_CLEARANCE_CM,
+    MIN_CLEARANCE_CM,
     clearance_between,
     overlaps,
     validate_layout,
@@ -22,7 +22,7 @@ from tests.conftest import make_placement as P
 
 
 def test_min_clearance_matches_room_model_doc():
-    assert DEFAULT_MIN_CLEARANCE_CM == 75
+    assert MIN_CLEARANCE_CM == 75
 
 
 # --- within_bounds -------------------------------------------------------

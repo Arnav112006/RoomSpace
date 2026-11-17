@@ -40,9 +40,9 @@ Studio" module rather than as separate pages:
 | Design Studio | 4–11 | `modules/studio` |
 | Recommendations | 12 | `modules/recommendations` |
 
-The left-hand `StageRail` (in `shared/layout`) still shows all 12 numbered
-stages, matching the diagram, and highlights which screen/stage you're
-currently on.
+The `Stepper` across the top (in `shared/layout`) shows the five screens
+with the workflow stages each one covers, highlights the current one, and
+lets you click a completed step to go back.
 
 ## Project layout — module-wise
 
@@ -62,9 +62,10 @@ src/
       layoutEngine.ts         # stage 4 generation + stage 6/7 scoring/ranking
       commandParser.ts         # stage 9 rule-based NLP
       catalog.ts                # stage 12 mock catalog + style scoring
+      furniture.ts               # default furniture sizes + keyword synonyms
     store/roomStore.ts     # single Zustand store for the whole workflow
-    layout/                # Header, StageRail (used on every screen)
-    ui/Primitives.tsx     # Card, Field, Badge, EmptyState, Spinner
+    layout/                # Header, Stepper (used on every screen)
+    ui/                    # Primitives (Card, Field, Badge, …), NumberInput, OpeningsLayer
   modules/
     room-input/RoomInputStage.tsx       # stage 1
     analysis/AnalysisStage.tsx           # stage 2

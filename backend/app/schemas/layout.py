@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class Placement(BaseModel):
@@ -15,10 +15,3 @@ class Placement(BaseModel):
     depth_cm: float
     rotation_deg: float = 0  # one of 0, 90, 180, 270
 
-
-class Layout(BaseModel):
-    id: str
-    room_id: str
-    placements: list[Placement]
-    feasible: bool = True
-    violations: list[str] = Field(default_factory=list)
