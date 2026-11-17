@@ -4,21 +4,104 @@ for stage 8 (Interactive 2D SVG Visualization). Violating items are
 rendered in red so a failed layout is visually obvious.
 """
 
+from dataclasses import dataclass
+
 from app.schemas.layout import Placement
+from app.schemas.opening import Opening, OpeningKind, WallSide
 from app.schemas.room import RoomDimensions
+from app.services.constraint_engine import door_hinge_point, opening_span
 from app.services.units import room_dimensions_cm
 
 _SCALE = 0.5  # px per cm
 _MARGIN = 40
+
+Point = tuple[float, float]
+
+INWARD_NORMAL: dict[WallSide, Point] = {
+    WallSide.NORTH: (0.0, 1.0),
+    WallSide.SOUTH: (0.0, -1.0),
+    WallSide.WEST: (1.0, 0.0),
+    WallSide.EAST: (-1.0, 0.0),
+}
+
+
+@dataclass(frozen=True)
+class OpeningShape:
+    """Where to draw one opening, in room centimetres. For doors,
+    `hinge`, `leaf_end` and `free_end` describe the open door leaf and
+    its swing arc (leaf_end -> free_end around hinge, radius = width)."""
+
+    kind: OpeningKind
+    start: Point
+    end: Point
+    hinge: Point | None = None
+    leaf_end: Point | None = None
+    free_end: Point | None = None
+    sweep_clockwise: bool = False
+
+
+def _wall_point(wall: WallSide, along: float, length_cm: float, width_cm: float) -> Point:
+    if wall is WallSide.NORTH:
+        return along, 0.0
+    if wall is WallSide.SOUTH:
+        return along, width_cm
+    if wall is WallSide.WEST:
+        return 0.0, along
+    return length_cm, along
+
+
+def opening_shape(o: Opening, length_cm: float, width_cm: float) -> OpeningShape:
+    s0, s1 = opening_span(o)
+    start = _wall_point(o.wall, s0, length_cm, width_cm)
+    end = _wall_point(o.wall, s1, length_cm, width_cm)
+    if o.kind is OpeningKind.WINDOW:
+        return OpeningShape(kind=o.kind, start=start, end=end)
+
+    hinge = door_hinge_point(o, length_cm, width_cm)
+    free_end = end if o.hinge != "end" else start
+    nx, ny = INWARD_NORMAL[o.wall]
+    if o.swing == "outward":
+        nx, ny = -nx, -ny
+    leaf_end = (hinge[0] + nx * o.width_cm, hinge[1] + ny * o.width_cm)
+    # y points down, so a positive cross product is a clockwise turn on screen.
+    ax, ay = leaf_end[0] - hinge[0], leaf_end[1] - hinge[1]
+    bx, by = free_end[0] - hinge[0], free_end[1] - hinge[1]
+    return OpeningShape(
+        kind=o.kind, start=start, end=end, hinge=hinge, leaf_end=leaf_end,
+        free_end=free_end, sweep_clockwise=(ax * by - ay * bx) > 0,
+    )
+
+
+def _svg_opening(shape: OpeningShape, radius_cm: float) -> str:
+    def pt(p: Point) -> str:
+        return f"{_MARGIN + p[0] * _SCALE:.1f},{_MARGIN + p[1] * _SCALE:.1f}"
+
+    x1, y1 = pt(shape.start).split(",")
+    x2, y2 = pt(shape.end).split(",")
+    if shape.kind is OpeningKind.WINDOW:
+        return (
+            f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="#faf8f2" stroke-width="4"/>'
+            f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="#4a90c2" stroke-width="2" '
+            f'stroke-dasharray="6 3" data-opening="window"/>'
+        )
+    r = radius_cm * _SCALE
+    sweep = 1 if shape.sweep_clockwise else 0
+    return (
+        f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="#faf8f2" stroke-width="4"/>'
+        f'<path d="M {pt(shape.hinge)} L {pt(shape.leaf_end)} A {r:.1f} {r:.1f} 0 0 {sweep} {pt(shape.free_end)}" '
+        f'fill="none" stroke="#8b6b3d" stroke-width="1.5" stroke-dasharray="4 3" data-opening="door"/>'
+    )
 
 
 def render_layout_svg(
     dimensions: RoomDimensions,
     placements: list[Placement],
     violations: list[str] | None = None,
+    openings: list[Opening] | None = None,
 ) -> str:
     length_cm, width_cm = room_dimensions_cm(dimensions)
     violations = violations or []
+    openings = openings or []
 
     violating_labels = {p.label for p in placements if any(p.label in v for v in violations)}
 
@@ -31,6 +114,8 @@ def render_layout_svg(
         f'<rect x="{_MARGIN}" y="{_MARGIN}" width="{length_cm * _SCALE:.0f}" '
         f'height="{width_cm * _SCALE:.0f}" fill="#faf8f2" stroke="#333" stroke-width="2"/>',
     ]
+    for o in openings:
+        parts.append(_svg_opening(opening_shape(o, length_cm, width_cm), o.width_cm))
 
     for p in placements:
         w, d = (p.depth_cm, p.width_cm) if p.rotation_deg in (90, 270) else (p.width_cm, p.depth_cm)

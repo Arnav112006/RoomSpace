@@ -3,6 +3,7 @@ import { useRoomStore } from "@/shared/store/roomStore";
 import { roomDimensionsCm } from "@/shared/lib/units";
 import type { Placement } from "@/shared/types";
 import { Badge, Spinner } from "@/shared/ui/Primitives";
+import { OpeningsLayer } from "@/shared/ui/OpeningsLayer";
 
 const SCALE_PX_PER_CM = 0.55;
 
@@ -114,6 +115,12 @@ export function FloorPlanCanvas() {
             fill="#faf8f2"
             stroke="#232A33"
             strokeWidth={2}
+          />
+          <OpeningsLayer
+            openings={room.openings ?? []}
+            lengthCm={lengthCm}
+            widthCm={widthCm}
+            scale={SCALE_PX_PER_CM}
           />
           {activePlacements.map((p) => {
             const rotated = p.rotation_deg === 90 || p.rotation_deg === 270;

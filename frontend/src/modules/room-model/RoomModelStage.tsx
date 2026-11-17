@@ -1,9 +1,11 @@
 import { useRoomStore } from "@/shared/store/roomStore";
 import { Card, SectionHeading, Spinner } from "@/shared/ui/Primitives";
 import { roomDimensionsCm } from "@/shared/lib/units";
+import { openingFitErrors } from "@/shared/lib/constraintEngine";
+import { OpeningsEditor } from "./OpeningsEditor";
 
 export function RoomModelStage() {
-  const { room, furniture, generateAndRank, generating } = useRoomStore();
+  const { room, furniture, openings, generateAndRank, generating } = useRoomStore();
   if (!room) return null;
 
   const [lengthCm, widthCm] = roomDimensionsCm(room.dimensions);
@@ -11,6 +13,7 @@ export function RoomModelStage() {
   const furnitureAreaCm2 = furniture.reduce((sum, f) => sum + f.width_cm * f.depth_cm, 0);
   const freeAreaM2 = Math.max(0, roomAreaM2 - furnitureAreaCm2 / 10000);
   const fixedCount = furniture.filter((f) => f.is_fixed).length;
+  const openingsInvalid = openingFitErrors(openings, lengthCm, widthCm).length > 0;
 
   return (
     <div className="max-w-3xl">
@@ -48,6 +51,10 @@ export function RoomModelStage() {
         </div>
 
         <div className="border-t border-white/10 pt-4">
+          <OpeningsEditor lengthCm={lengthCm} widthCm={widthCm} />
+        </div>
+
+        <div className="border-t border-white/10 pt-4">
           <p className="field-label mb-2">Hard constraints that will be enforced</p>
           <div className="flex flex-wrap gap-2 text-xs text-ink-muted">
             {["Room boundaries", "No overlap", "Door clearance", "Window unobstructed", "Fixed-item rules", "Min. walking space (75cm)"].map(
@@ -61,7 +68,7 @@ export function RoomModelStage() {
         </div>
 
         <div className="pt-2">
-          <button className="btn-primary" disabled={generating} onClick={generateAndRank}>
+          <button className="btn-primary" disabled={generating || openingsInvalid} onClick={generateAndRank}>
             {generating ? <Spinner label="Generating candidate layouts…" /> : "Generate layouts"}
           </button>
         </div>

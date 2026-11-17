@@ -23,6 +23,22 @@ export interface FurnitureItem {
 
 export type LengthUnit = "cm" | "m" | "ft";
 
+// Doors and windows — docs/room-model.md §4. Not furniture: never moved,
+// scored or recommended. Stored as wall + offset + width.
+export type WallSide = "north" | "south" | "east" | "west";
+export type OpeningKind = "door" | "window";
+
+export interface Opening {
+  id: string;
+  kind: OpeningKind;
+  wall: WallSide;
+  /** From the west end (north/south walls) or north end (east/west walls). */
+  offset_cm: number;
+  width_cm: number;
+  hinge?: "start" | "end" | null; // doors only
+  swing?: "inward" | "outward" | null; // doors only
+}
+
 export interface RoomDimensions {
   length: number;
   width: number;
@@ -35,10 +51,12 @@ export interface RoomCreate {
   theme: string;
   occasion?: string | null;
   budget?: number | null;
+  openings?: Opening[];
 }
 
 export interface RoomResponse extends RoomCreate {
   id: string;
+  openings: Opening[];
   furniture: FurnitureItem[];
 }
 

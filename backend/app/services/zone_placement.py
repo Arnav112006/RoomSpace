@@ -12,6 +12,8 @@ correctly caught by the Constraint Engine downstream, not silently
 avoided here.
 """
 
+import math
+
 from app.schemas.furniture import FurnitureItem
 from app.schemas.layout import Placement
 from app.schemas.room import RoomDimensions
@@ -31,6 +33,13 @@ _ZONE_TO_FRACTION = {
     "front right": (0.85, 0.85),
 }
 _DEFAULT_FRACTION = (0.5, 0.5)
+
+
+def _floor_mm(value_cm: float) -> float:
+    """Truncates to 0.1 cm. Plain round() could push a wall-clamped
+    item past the wall (e.g. 365.76 - 150 = 215.76 -> 215.8, which is
+    0.04 cm outside a 12 ft room) and trigger a false violation."""
+    return math.floor(value_cm * 10) / 10
 
 
 def _fraction_for_zone(zone: str | None) -> tuple[float, float]:
@@ -69,8 +78,8 @@ def placements_from_detection(
             Placement(
                 item_id=f"detected-{i}",
                 label=item.label,
-                x_cm=round(x_cm, 1),
-                y_cm=round(y_cm, 1),
+                x_cm=_floor_mm(x_cm),
+                y_cm=_floor_mm(y_cm),
                 width_cm=item.width_cm,
                 depth_cm=item.depth_cm,
             )

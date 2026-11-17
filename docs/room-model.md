@@ -69,10 +69,10 @@ space. Choosing anything else would force y-axis flips in three places.
 A placement rotates around its **`(x_cm, y_cm)` corner**. Width and depth swap
 at 90° and 270°. Only `0`, `90`, `180`, `270` are valid.
 
-> **Known inconsistency:** `frontend/src/lib/layoutEngine.ts` currently swaps
-> the footprint in the `symmetric` strategy without setting
-> `rotation_deg: 90`. The rule above is the intended behaviour; the generator
-> is to be fixed in Step 5, and covered by a test in Step 3.
+> **Fixed (2026-11-17):** `frontend/src/shared/lib/layoutEngine.ts` used to
+> swap the footprint in the `symmetric` strategy without setting
+> `rotation_deg`. `placeOnWall` now sets 90/270 whenever the footprint is
+> swapped and 0/180 otherwise.
 
 ---
 
@@ -152,6 +152,11 @@ A door's swing area is a **quarter-disc** of radius equal to the door's
 
 **v1 supports inward-swinging hinged doors only.**
 
+Implemented as `in_door_swing` in `backend/app/services/constraint_engine.py`
+(mirrored as `inDoorSwing` in `frontend/src/shared/lib/constraintEngine.ts`):
+the item is clipped to the door-width square at the hinge, and it intrudes if
+any of the clipped part is closer to the hinge than the door's width.
+
 ---
 
 ## 6. Window obstruction rule
@@ -165,7 +170,13 @@ value.**
 > `WINDOW_BLOCK_RATIO` (80%) of the window's width.
 
 Partial coverage below that ratio is allowed — furniture can sit under a
-window, it just can't wall it off.
+window, it just can't wall it off. Implemented as `blocks_window` /
+`blocksWindow`.
+
+Openings themselves are checked too (`opening_fit_errors`): each must end
+within its wall, and two openings on the same wall may not overlap. The API
+answers `422` for openings that fail this, both on `POST /api/rooms` and on
+`PUT /api/rooms/{id}/openings`.
 
 ---
 
@@ -276,3 +287,4 @@ Both were settled before any code depended on them.
 |---|---|---|
 | 1 | 2026-10-28 | Initial agreement: units, coordinate system, openings, constants, demo room |
 | 1 | 2026-10-28 | Section 11 decisions confirmed: openings removed from `FurnitureType`; window thresholds approved |
+| 1 | 2026-11-17 | Openings implemented: `Opening` schema, `openings[]` on rooms, door-swing and window rules, `PUT /openings`, Stage 3 editor, generator avoids openings, symmetric rotation fixed. `WALL_MARGIN_CM` stays a generator constant, not a validation rule. |
