@@ -30,8 +30,6 @@ WINDOW_BACK_GAP_CM = 30.0
 WINDOW_BLOCK_RATIO = 0.80
 EPSILON_CM = 1e-6
 
-DEFAULT_MIN_CLEARANCE_CM = MIN_CLEARANCE_CM  # kept for existing callers
-
 Rect = tuple[float, float, float, float]  # (x_min, y_min, x_max, y_max)
 
 
@@ -148,16 +146,23 @@ def door_swing_square(door: Opening, room_length_cm: float, room_width_cm: float
     return room_length_cm - w, s0, room_length_cm, s1
 
 
-def door_hinge_point(door: Opening, room_length_cm: float, room_width_cm: float) -> tuple[float, float]:
-    s0, s1 = opening_span(door)
-    along = s0 if door.hinge != "end" else s1
-    if door.wall is WallSide.NORTH:
+def wall_point(
+    wall: WallSide, along: float, room_length_cm: float, room_width_cm: float
+) -> tuple[float, float]:
+    """The room coordinate `along` cm down a wall, in the wall's own
+    direction of travel (§4)."""
+    if wall is WallSide.NORTH:
         return along, 0.0
-    if door.wall is WallSide.SOUTH:
+    if wall is WallSide.SOUTH:
         return along, room_width_cm
-    if door.wall is WallSide.WEST:
+    if wall is WallSide.WEST:
         return 0.0, along
     return room_length_cm, along
+
+
+def door_hinge_point(door: Opening, room_length_cm: float, room_width_cm: float) -> tuple[float, float]:
+    s0, s1 = opening_span(door)
+    return wall_point(door.wall, s0 if door.hinge != "end" else s1, room_length_cm, room_width_cm)
 
 
 def in_door_swing(p: Placement, door: Opening, room_length_cm: float, room_width_cm: float) -> bool:

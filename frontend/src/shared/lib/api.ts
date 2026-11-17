@@ -63,8 +63,6 @@ export const api = {
       body: JSON.stringify(room),
     }),
 
-  getRoom: (roomId: string) => request<RoomResponse>(`/api/rooms/${roomId}`),
-
   setOpenings: (roomId: string, openings: Opening[]) =>
     request<RoomResponse>(`/api/rooms/${roomId}/openings`, {
       method: "PUT",
@@ -81,23 +79,11 @@ export const api = {
     });
   },
 
-  analyzePhoto: (roomId: string, file: File) => {
-    const form = new FormData();
-    form.append("photo", file);
-    return request<RoomResponse>(`/api/rooms/${roomId}/photo`, {
-      method: "POST",
-      body: form,
-    });
-  },
-
   validateLayout: (roomId: string, placements: Placement[]) =>
     request<{ feasible: boolean; violations: string[]; svg: string }>(
       `/api/rooms/${roomId}/validate-layout`,
       { method: "POST", body: JSON.stringify(placements) }
     ),
-
-  validateLayoutPreviewUrl: (roomId: string) =>
-    `${BASE_URL}/api/rooms/${roomId}/validate-layout/preview`,
 
   conceptImage: (
     roomId: string,

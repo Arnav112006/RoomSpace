@@ -1,16 +1,6 @@
 import type { RoomDimensions } from "@/shared/types";
 import { roomDimensionsCm } from "@/shared/lib/units";
-
-// Typical footprints (cm), matching the defaults the store seeds.
-const FOOTPRINT: Record<string, [number, number]> = {
-  bed: [150, 200],
-  wardrobe: [120, 60],
-  sofa: [180, 90],
-  table: [140, 80],
-  chair: [45, 45],
-  desk: [120, 60],
-  shelf: [90, 30],
-};
+import { defaultFootprint } from "@/shared/lib/furniture";
 
 const TINT: Record<string, string> = {
   bed: "from-blueprint-500/50 to-blueprint-400/25 border-blueprint-600/70",
@@ -46,7 +36,7 @@ function pack(ids: string[], lengthCm: number): Block[] {
   let y = GAP_CM;
   let rowDepth = 0;
   for (const id of ids) {
-    const [w, d] = FOOTPRINT[id] ?? [60, 60];
+    const [w, d] = defaultFootprint(id);
     if (x + w + GAP_CM > lengthCm && x > GAP_CM) {
       x = GAP_CM;
       y += rowDepth + GAP_CM;

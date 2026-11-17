@@ -141,25 +141,3 @@ export type ParsedCommandAction =
   | { kind: "add"; itemType: FurnitureType; near?: "window" | "door" | "center" }
   | { kind: "rotate"; label: string }
   | { kind: "unknown"; raw: string };
-
-export type WorkflowStage =
-  | "input"
-  | "analysis"
-  | "model"
-  | "studio"
-  | "recommendations";
-
-export const STAGE_META: { id: number; key: WorkflowStage | "loop"; title: string }[] = [
-  { id: 1, key: "input", title: "Room Input" },
-  { id: 2, key: "analysis", title: "Room Analysis & Verification" },
-  { id: 3, key: "model", title: "Room Model Creation" },
-  { id: 4, key: "loop", title: "Candidate Layout Generation" },
-  { id: 5, key: "loop", title: "Hard Constraint Validation" },
-  { id: 6, key: "loop", title: "Aesthetic & Preference Scoring" },
-  { id: 7, key: "loop", title: "Layout Ranking" },
-  { id: 8, key: "loop", title: "Interactive 2D Visualization" },
-  { id: 9, key: "loop", title: "User Refinement / Commands" },
-  { id: 10, key: "loop", title: "Re-validation & Regeneration" },
-  { id: 11, key: "loop", title: "Layout Versioning" },
-  { id: 12, key: "recommendations", title: "Product Recommendation" },
-];

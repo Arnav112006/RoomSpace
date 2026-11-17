@@ -12,7 +12,6 @@ export const MIN_CLEARANCE_CM = 75;
 export const WINDOW_BACK_GAP_CM = 30;
 export const WINDOW_BLOCK_RATIO = 0.8;
 export const EPSILON_CM = 1e-6;
-export const DEFAULT_MIN_CLEARANCE_CM = MIN_CLEARANCE_CM;
 
 type Rect = [number, number, number, number]; // x1, y1, x2, y2
 
@@ -188,7 +187,7 @@ export function conflictingOpening(
 export function validateLayoutLocal(
   dimensions: RoomDimensions,
   placements: Placement[],
-  minClearanceCm = DEFAULT_MIN_CLEARANCE_CM,
+  minClearanceCm = MIN_CLEARANCE_CM,
   openings: Opening[] = []
 ): { feasible: boolean; violations: string[] } {
   const violations: string[] = [];
