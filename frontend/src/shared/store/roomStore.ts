@@ -3,14 +3,17 @@ import type {
   FurnitureItem,
   Layout,
   LayoutVersion,
+  Opening,
+  OpeningKind,
   Placement,
+  Product,
   RoomDimensions,
   RoomResponse,
   ScoredLayout,
 } from "@/shared/types";
 import { api, ApiError } from "@/shared/lib/api";
 import { generateCandidates, rankCandidates, type LayoutStyle } from "@/shared/lib/layoutEngine";
-import { validateLayoutLocal } from "@/shared/lib/constraintEngine";
+import { DEFAULT_MIN_CLEARANCE_CM, openingFitErrors, validateLayoutLocal } from "@/shared/lib/constraintEngine";
 import { parseCommand, describeAction } from "@/shared/lib/commandParser";
 import { roomDimensionsCm } from "@/shared/lib/units";
 
@@ -32,14 +35,19 @@ interface RoomStoreState {
   draftOccasion: string;
   draftBudget: string;
   draftFurnitureNeeds: string[];
-  photoFile: File | null;
-  photoPreviewUrl: string | null;
+  photoFiles: File[];
+  photoPreviewUrls: string[]; // same order as photoFiles
 
   // Stage 1-3 result
   room: RoomResponse | null;
   furniture: FurnitureItem[];
   creating: boolean;
   createError: string | null;
+
+  // Stage 3 — doors and windows (docs/room-model.md §4). Edited locally,
+  // saved to the room when layouts are generated.
+  openings: Opening[];
+  openingsError: string | null;
 
   // Stage 2
   analyzing: boolean;
@@ -64,18 +72,29 @@ interface RoomStoreState {
   // Stage 11
   versions: LayoutVersion[];
 
+  // Stage 12 — products the user picked for each placement. An empty entry
+  // means "use the top recommendation", so the final image always has one.
+  chosenProducts: Record<string, Product>;
+  chooseProduct: (itemId: string, product: Product) => void;
+
   // actions
   checkBackend: () => Promise<void>;
   setDraftDimensions: (d: Partial<RoomDimensions>) => void;
   setDraftField: (field: "draftRoomType" | "draftTheme" | "draftOccasion" | "draftBudget", value: string) => void;
   toggleFurnitureNeed: (need: string) => void;
-  setPhotoFile: (file: File | null) => void;
+  addPhotos: (files: File[]) => void;
+  removePhoto: (index: number) => void;
+  clearPhotos: () => void;
   submitRoomInput: () => Promise<void>;
 
   updateFurnitureItem: (index: number, patch: Partial<FurnitureItem>) => void;
   removeFurnitureItem: (index: number) => void;
   addManualFurnitureItem: (item: FurnitureItem) => void;
   confirmRoomModel: () => void;
+
+  addOpening: (kind: OpeningKind) => void;
+  updateOpening: (id: string, patch: Partial<Opening>) => void;
+  removeOpening: (id: string) => void;
 
   generateAndRank: () => Promise<void>;
   selectLayout: (layoutId: string) => void;
@@ -88,7 +107,24 @@ interface RoomStoreState {
   reset: () => void;
 }
 
+/** Matches backend room_analysis.MAX_PHOTOS_PER_ROOM. */
+export const MAX_PHOTOS = 8;
+
 const DEFAULT_DIMENSIONS: RoomDimensions = { length: 12, width: 10, unit: "ft" };
+
+/** FastAPI error bodies are {"detail": string | string[] | object[]}. */
+function firstDetail(body: string): string {
+  try {
+    const detail = JSON.parse(body).detail;
+    if (typeof detail === "string") return detail;
+    if (Array.isArray(detail) && detail.length > 0) {
+      return typeof detail[0] === "string" ? detail[0] : detail[0].msg ?? body;
+    }
+  } catch {
+    // not JSON — fall through
+  }
+  return body;
+}
 
 function newId(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
@@ -104,13 +140,16 @@ export const useRoomStore = create<RoomStoreState>((set, get) => ({
   draftOccasion: "",
   draftBudget: "",
   draftFurnitureNeeds: ["bed", "wardrobe"],
-  photoFile: null,
-  photoPreviewUrl: null,
+  photoFiles: [],
+  photoPreviewUrls: [],
 
   room: null,
   furniture: [],
   creating: false,
   createError: null,
+
+  openings: [],
+  openingsError: null,
 
   analyzing: false,
   analysisError: null,
@@ -129,6 +168,10 @@ export const useRoomStore = create<RoomStoreState>((set, get) => ({
   commandLog: [],
   versions: [],
 
+  chosenProducts: {},
+  chooseProduct: (itemId, product) =>
+    set((s) => ({ chosenProducts: { ...s.chosenProducts, [itemId]: product } })),
+
   checkBackend: async () => {
     try {
       await api.health();
@@ -146,10 +189,27 @@ export const useRoomStore = create<RoomStoreState>((set, get) => ({
         ? s.draftFurnitureNeeds.filter((n) => n !== need)
         : [...s.draftFurnitureNeeds, need],
     })),
-  setPhotoFile: (file) => {
-    const prev = get().photoPreviewUrl;
-    if (prev) URL.revokeObjectURL(prev);
-    set({ photoFile: file, photoPreviewUrl: file ? URL.createObjectURL(file) : null });
+  addPhotos: (files) => {
+    const s = get();
+    const room = MAX_PHOTOS - s.photoFiles.length;
+    const added = files.filter((f) => f.type.startsWith("image/")).slice(0, Math.max(0, room));
+    set({
+      photoFiles: [...s.photoFiles, ...added],
+      photoPreviewUrls: [...s.photoPreviewUrls, ...added.map((f) => URL.createObjectURL(f))],
+    });
+  },
+  removePhoto: (index) => {
+    const s = get();
+    const url = s.photoPreviewUrls[index];
+    if (url) URL.revokeObjectURL(url);
+    set({
+      photoFiles: s.photoFiles.filter((_, i) => i !== index),
+      photoPreviewUrls: s.photoPreviewUrls.filter((_, i) => i !== index),
+    });
+  },
+  clearPhotos: () => {
+    get().photoPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
+    set({ photoFiles: [], photoPreviewUrls: [] });
   },
 
   submitRoomInput: async () => {
@@ -167,10 +227,10 @@ export const useRoomStore = create<RoomStoreState>((set, get) => ({
       let finalRoom = room;
       let furniture: FurnitureItem[] = [];
 
-      if (s.photoFile) {
+      if (s.photoFiles.length > 0) {
         set({ analyzing: true, analysisError: null });
         try {
-          finalRoom = await api.analyzePhoto(room.id, s.photoFile);
+          finalRoom = await api.analyzePhotos(room.id, s.photoFiles);
           furniture = finalRoom.furniture;
         } catch (err) {
           set({ analysisError: err instanceof ApiError ? err.message : "Photo analysis failed." });
@@ -209,8 +269,9 @@ export const useRoomStore = create<RoomStoreState>((set, get) => ({
       set({
         room: finalRoom,
         furniture,
+        openings: finalRoom.openings ?? [],
         creating: false,
-        step: s.photoFile ? "analysis" : "model",
+        step: s.photoFiles.length > 0 ? "analysis" : "model",
       });
     } catch (err) {
       set({
@@ -226,12 +287,48 @@ export const useRoomStore = create<RoomStoreState>((set, get) => ({
   addManualFurnitureItem: (item) => set((s) => ({ furniture: [...s.furniture, item] })),
   confirmRoomModel: () => set({ step: "model" }),
 
+  addOpening: (kind) =>
+    set((s) => ({
+      openingsError: null,
+      openings: [
+        ...s.openings,
+        kind === "door"
+          ? { id: newId("door"), kind, wall: "south", offset_cm: 30, width_cm: 90, hinge: "start", swing: "inward" }
+          : { id: newId("window"), kind, wall: "north", offset_cm: 30, width_cm: 120 },
+      ],
+    })),
+  updateOpening: (id, patch) =>
+    set((s) => ({ openingsError: null, openings: s.openings.map((o) => (o.id === id ? { ...o, ...patch } : o)) })),
+  removeOpening: (id) => set((s) => ({ openingsError: null, openings: s.openings.filter((o) => o.id !== id) })),
+
   generateAndRank: async () => {
     const s = get();
     if (!s.room) return;
-    set({ generating: true, step: "studio" });
-    const candidates = generateCandidates(s.furniture, s.room.dimensions, s.room.id);
-    const ranked = rankCandidates(candidates, s.room.dimensions, s.room.theme, s.room.budget);
+
+    const [lengthCm, widthCm] = roomDimensionsCm(s.room.dimensions);
+    const fitErrors = openingFitErrors(s.openings, lengthCm, widthCm);
+    if (fitErrors.length > 0) {
+      set({ openingsError: fitErrors[0] });
+      return;
+    }
+
+    set({ generating: true, openingsError: null });
+
+    // Save doors/windows on the room so server-side validation (stages 5/10)
+    // checks them too. If the API is unreachable, carry on locally.
+    let room: RoomResponse = { ...s.room, openings: s.openings };
+    try {
+      room = await api.setOpenings(s.room.id, s.openings);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 422) {
+        set({ generating: false, openingsError: firstDetail(err.message) });
+        return;
+      }
+    }
+
+    set({ room, step: "studio" });
+    const candidates = generateCandidates(s.furniture, room.dimensions, room.id, room.openings);
+    const ranked = rankCandidates(candidates, room.dimensions, room.theme, room.budget);
 
     set({ candidates, rankedLayouts: ranked, generating: false });
 
@@ -285,7 +382,7 @@ export const useRoomStore = create<RoomStoreState>((set, get) => ({
         usingRemoteValidation: true,
       });
     } catch {
-      const local = validateLayoutLocal(s.room.dimensions, placements);
+      const local = validateLayoutLocal(s.room.dimensions, placements, DEFAULT_MIN_CLEARANCE_CM, s.room.openings ?? []);
       set({
         activePlacements: placements,
         activeFeasible: local.feasible,
@@ -393,7 +490,8 @@ export const useRoomStore = create<RoomStoreState>((set, get) => ({
     });
   },
 
-  reset: () =>
+  reset: () => {
+    get().clearPhotos();
     set({
       step: "input",
       draftDimensions: DEFAULT_DIMENSIONS,
@@ -402,10 +500,13 @@ export const useRoomStore = create<RoomStoreState>((set, get) => ({
       draftOccasion: "",
       draftBudget: "",
       draftFurnitureNeeds: ["bed", "wardrobe"],
-      photoFile: null,
-      photoPreviewUrl: null,
+      photoFiles: [],
+      photoPreviewUrls: [],
       room: null,
       furniture: [],
+      openings: [],
+      openingsError: null,
+      chosenProducts: {},
       creating: false,
       createError: null,
       candidates: [],
@@ -416,5 +517,6 @@ export const useRoomStore = create<RoomStoreState>((set, get) => ({
       activeViolations: [],
       commandLog: [],
       versions: [],
-    }),
+    });
+  },
 }));

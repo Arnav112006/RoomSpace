@@ -1,4 +1,10 @@
 import type { Product, ProductCategory } from "@/shared/types";
+import { API_BASE_URL } from "./api";
+
+/** Real product photo, served by the backend from app/static/products. */
+export function productImageUrl(product: Product): string {
+  return `${API_BASE_URL}/static/products/${product.image_url}.jpg`;
+}
 
 // Stand-in product catalog. In production this is the real product
 // feed described in backend/app/services/product_filter.py +

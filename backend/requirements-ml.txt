@@ -1,0 +1,6 @@
+# Heavy, optional: local YOLO photo detection and CLIP product matching.
+-r requirements.txt
+ultralytics==8.3.253
+torch==2.9.1
+transformers==4.57.6
+requests==2.33.1

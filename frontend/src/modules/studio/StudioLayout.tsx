@@ -1,5 +1,5 @@
 import { useRoomStore } from "@/shared/store/roomStore";
-import { SectionHeading, Spinner } from "@/shared/ui/Primitives";
+import { SectionHeading } from "@/shared/ui/Primitives";
 import { CandidatePanel } from "./CandidatePanel";
 import { FloorPlanCanvas } from "./FloorPlanCanvas";
 import { CommandBar } from "./CommandBar";
@@ -18,11 +18,14 @@ export function StudioLayout() {
       />
 
       {generating ? (
-        <div className="py-20 flex justify-center">
-          <Spinner label="Generating and scoring candidate layouts…" />
+        <div className="grid grid-cols-[280px,1fr,280px] gap-5 min-h-[560px]" aria-busy="true">
+          <span className="sr-only">Generating and scoring candidate layouts…</span>
+          <div className="panel skeleton" />
+          <div className="panel skeleton" />
+          <div className="panel skeleton" />
         </div>
       ) : (
-        <div className="grid grid-cols-[280px,1fr,280px] gap-5 flex-1 min-h-[560px]">
+        <div className="grid grid-cols-[280px,1fr,280px] gap-5 flex-1 min-h-[560px] stagger">
           <div className="panel p-4 overflow-y-auto">
             <CandidatePanel />
           </div>
@@ -43,7 +46,7 @@ export function StudioLayout() {
       )}
 
       {!generating && room && (
-        <div className="flex items-center justify-between mt-5">
+        <div className="flex items-center justify-between gap-6 mt-6 animate-fade-up [animation-delay:300ms]">
           <p className="text-xs text-ink-muted">
             {activeFeasible ? "This layout is feasible." : "This layout has unresolved violations."} You can continue to
             product recommendations regardless — refine first if you'd like a cleaner floor plan.

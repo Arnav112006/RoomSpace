@@ -1,7 +1,11 @@
 import type { PropsWithChildren, ReactNode } from "react";
 
-export function Card({ children, className = "" }: PropsWithChildren<{ className?: string }>) {
-  return <div className={`panel p-5 ${className}`}>{children}</div>;
+export function Card({
+  children,
+  className = "",
+  interactive = false,
+}: PropsWithChildren<{ className?: string; interactive?: boolean }>) {
+  return <div className={`${interactive ? "panel-interactive" : "panel"} p-5 ${className}`}>{children}</div>;
 }
 
 export function SectionHeading({
@@ -14,10 +18,15 @@ export function SectionHeading({
   description?: string;
 }) {
   return (
-    <div className="mb-5">
-      {eyebrow && <p className="label-eyebrow mb-1">{eyebrow}</p>}
-      <h2 className="text-xl text-paper font-medium">{title}</h2>
-      {description && <p className="text-sm text-ink-muted mt-1 max-w-prose">{description}</p>}
+    <div className="mb-7">
+      {eyebrow && (
+        <p className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-brass-300/90 mb-2">
+          <span className="h-px w-6 bg-gradient-to-r from-brass-400 to-transparent" aria-hidden />
+          {eyebrow}
+        </p>
+      )}
+      <h2 className="text-[28px] leading-tight tracking-tight text-paper font-medium">{title}</h2>
+      {description && <p className="text-sm text-ink-muted mt-2 max-w-prose leading-relaxed">{description}</p>}
     </div>
   );
 }
@@ -55,7 +64,7 @@ export function Badge({
 
 export function EmptyState({ title, description, action }: { title: string; description: string; action?: ReactNode }) {
   return (
-    <div className="text-center py-14 px-6">
+    <div className="text-center py-14 px-6 animate-fade-in">
       <p className="text-paper font-display text-lg mb-1">{title}</p>
       <p className="text-sm text-ink-muted max-w-sm mx-auto mb-4">{description}</p>
       {action}
@@ -65,8 +74,8 @@ export function EmptyState({ title, description, action }: { title: string; desc
 
 export function Spinner({ label }: { label?: string }) {
   return (
-    <div className="flex items-center gap-2 text-sm text-ink-muted">
-      <span className="h-3.5 w-3.5 rounded-full border-2 border-blueprint-600 border-t-transparent animate-spin" />
+    <div className="flex items-center gap-2 text-sm">
+      <span className="h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin opacity-80" />
       {label}
     </div>
   );

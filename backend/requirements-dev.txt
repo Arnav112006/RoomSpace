@@ -1,0 +1,6 @@
+# Test and lint tooling. Deliberately does not pull in requirements-ml.txt,
+# so CI never downloads torch.
+-r requirements.txt
+pytest==8.4.2
+httpx==0.28.1
+ruff==0.14.0

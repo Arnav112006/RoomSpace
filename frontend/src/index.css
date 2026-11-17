@@ -7,9 +7,55 @@
     color-scheme: dark;
   }
   body {
-    @apply bg-ink-950 text-paper font-sans antialiased;
-    background-image: radial-gradient(circle at 50% -10%, rgba(91, 155, 212, 0.08), transparent 55%);
+    @apply text-paper font-sans antialiased;
+    background-color: #05070a;
+    /* Fine film grain over a deep vignette — gives the dark surface texture. */
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.035 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+      radial-gradient(ellipse 80% 60% at 50% -10%, rgba(91, 155, 212, 0.16), transparent 60%),
+      radial-gradient(ellipse 60% 50% at 100% 100%, rgba(203, 162, 92, 0.08), transparent 60%);
     background-attachment: fixed;
+    min-height: 100vh;
+  }
+  /* Two slow-moving coloured glows behind everything. */
+  body::before,
+  body::after {
+    content: "";
+    position: fixed;
+    z-index: -1;
+    pointer-events: none;
+    border-radius: 9999px;
+    filter: blur(110px);
+    animation: rs-drift 26s ease-in-out infinite;
+  }
+  body::before {
+    width: 52vw;
+    height: 52vw;
+    top: -24vw;
+    left: -12vw;
+    background: rgba(70, 130, 200, 0.22);
+  }
+  body::after {
+    width: 40vw;
+    height: 40vw;
+    bottom: -20vw;
+    right: -10vw;
+    background: rgba(203, 162, 92, 0.13);
+    animation-delay: -13s;
+  }
+  /* Blueprint grid that fades out toward the edges of the screen. */
+  #root::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image:
+      linear-gradient(to right, rgba(121, 178, 230, 0.07) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(121, 178, 230, 0.07) 1px, transparent 1px);
+    background-size: 44px 44px;
+    -webkit-mask-image: radial-gradient(ellipse 70% 55% at 50% 0%, black, transparent 75%);
+    mask-image: radial-gradient(ellipse 70% 55% at 50% 0%, black, transparent 75%);
   }
   ::selection {
     @apply bg-brass-500/30 text-paper;
@@ -36,10 +82,18 @@
     background: rgba(255, 255, 255, 0.2);
   }
   input, select, textarea {
-    @apply bg-ink-800/80 border border-white/10 rounded-sm px-3 py-2 text-sm text-paper outline-none transition-colors placeholder:text-ink-muted;
+    @apply border border-white/10 rounded-lg px-3.5 py-2.5 text-sm text-paper outline-none placeholder:text-ink-muted/70;
+    background-color: rgba(255, 255, 255, 0.035);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  }
+  input:hover, select:hover, textarea:hover {
+    @apply border-white/20;
+    background-color: rgba(255, 255, 255, 0.05);
   }
   input:focus, select:focus, textarea:focus {
     @apply border-blueprint-600/70;
+    background-color: rgba(91, 155, 212, 0.06);
+    box-shadow: 0 0 0 4px rgba(91, 155, 212, 0.14);
   }
   input[type="checkbox"] {
     @apply px-0 py-0 w-4 h-4 accent-blueprint-600;
@@ -51,38 +105,140 @@
 }
 
 @layer components {
+  /* Glass card with a thin top-lit gradient edge. */
   .panel {
-    @apply bg-ink-900/70 border border-white/[0.08] rounded-md shadow-panel backdrop-blur-sm;
+    @apply rounded-2xl backdrop-blur-xl;
+    border: 1px solid transparent;
+    background:
+      linear-gradient(180deg, rgba(24, 30, 41, 0.78), rgba(13, 17, 24, 0.7)) padding-box,
+      linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04) 40%, rgba(255, 255, 255, 0.07)) border-box;
+    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.05) inset, 0 24px 48px -28px rgba(0, 0, 0, 0.9);
+  }
+  /* A panel that responds to the pointer: lifts and brightens its edge. */
+  .panel-interactive {
+    @apply panel;
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease-out, border-color 0.35s ease-out;
+  }
+  .panel-interactive:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.07) inset, 0 30px 60px -28px rgba(0, 0, 0, 0.95),
+      0 0 0 1px rgba(121, 178, 230, 0.18);
   }
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-sm px-4 py-2 text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed;
+    @apply relative overflow-hidden inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-all duration-200 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100;
   }
+  /* Light sweep across filled buttons on hover. */
+  .btn-primary::after,
+  .btn-brass::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.45) 50%, transparent 70%);
+    transform: translateX(-120%);
+    transition: transform 0.8s ease;
+    pointer-events: none;
+  }
+  .btn-primary:hover:not(:disabled)::after,
+  .btn-brass:hover:not(:disabled)::after {
+    transform: translateX(120%);
+  }
+  /* The main call to action: warm brass with a soft glow. */
   .btn-primary {
-    @apply btn bg-gradient-to-b from-blueprint-600 to-blueprint-500 text-ink-950 font-semibold hover:shadow-glow hover:from-blueprint-700 hover:to-blueprint-600;
+    @apply btn text-ink-950 font-semibold;
+    background: linear-gradient(180deg, #ecd08f, #c9a24d);
+    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.45) inset, 0 10px 30px -10px rgba(203, 162, 92, 0.6);
+  }
+  .btn-primary:hover:not(:disabled) {
+    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.5) inset, 0 14px 40px -10px rgba(220, 184, 118, 0.85);
   }
   .btn-brass {
-    @apply btn bg-gradient-to-b from-brass-500 to-brass-400 text-ink-950 font-semibold hover:from-brass-600 hover:to-brass-500;
+    @apply btn text-ink-950 font-semibold;
+    background: linear-gradient(180deg, #ecd08f, #c9a24d);
+    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.45) inset, 0 8px 24px -10px rgba(203, 162, 92, 0.55);
   }
   .btn-ghost {
-    @apply btn bg-white/[0.03] text-paper border border-white/[0.12] hover:border-white/30 hover:bg-white/[0.06];
+    @apply btn text-paper border border-white/[0.14] hover:border-white/30;
+    background: rgba(255, 255, 255, 0.04);
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.08);
   }
   .btn-danger {
     @apply btn bg-transparent text-clay-400 border border-clay-500/40 hover:bg-clay-500/10;
   }
+  /* Arrow inside a button that nudges forward on hover. */
+  .btn-arrow {
+    @apply inline-block transition-transform duration-300;
+  }
+  .btn:hover:not(:disabled) .btn-arrow {
+    transform: translateX(4px);
+  }
   .label-eyebrow {
-    @apply text-xs tracking-wide text-ink-muted;
+    @apply text-[11px] uppercase tracking-[0.16em] text-ink-muted;
+  }
+  /* Soft gradient on headline text. */
+  .text-gradient {
+    background: linear-gradient(180deg, #ffffff 20%, rgba(237, 239, 244, 0.62));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .text-gradient-brass {
+    background: linear-gradient(100deg, #f1dba6, #c9a24d 55%, #e8cb86);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* Children fade up one after another. */
+  .stagger > * {
+    animation: rs-fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .stagger > *:nth-child(2) { animation-delay: 70ms; }
+  .stagger > *:nth-child(3) { animation-delay: 140ms; }
+  .stagger > *:nth-child(4) { animation-delay: 210ms; }
+  .stagger > *:nth-child(5) { animation-delay: 280ms; }
+  .stagger > *:nth-child(6) { animation-delay: 350ms; }
+  .stagger > *:nth-child(7) { animation-delay: 420ms; }
+  .stagger > *:nth-child(n + 8) { animation-delay: 490ms; }
+  /* Loading placeholder with a moving highlight. */
+  .skeleton {
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 25%, rgba(255, 255, 255, 0.09) 50%, rgba(255, 255, 255, 0.03) 75%);
+    background-size: 200% 100%;
+    animation: rs-shimmer 1.6s linear infinite;
   }
   .field-label {
-    @apply block text-xs font-medium text-ink-muted mb-1;
+    @apply block text-xs font-medium text-paper/70 mb-1.5;
   }
   .blueprint-surface {
-    background-color: #0d1117;
+    background-color: #0a0e14;
     background-image:
-      linear-gradient(to right, rgba(91, 155, 212, 0.10) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(91, 155, 212, 0.10) 1px, transparent 1px),
-      radial-gradient(circle at 30% 20%, rgba(91, 155, 212, 0.07), transparent 60%);
+      linear-gradient(to right, rgba(91, 155, 212, 0.09) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(91, 155, 212, 0.09) 1px, transparent 1px),
+      radial-gradient(circle at 30% 20%, rgba(91, 155, 212, 0.10), transparent 60%);
     background-size: 28px 28px, 28px 28px, 100% 100%;
   }
+}
+
+/* Plain-CSS keyframes for the rules above, so this stylesheet never depends
+   on tailwind.config.js having been reloaded. */
+@keyframes rs-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes rs-shimmer {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+@keyframes rs-draw {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes rs-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes rs-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(4%, 3%, 0) scale(1.08); }
 }
 
 @media (prefers-reduced-motion: reduce) {

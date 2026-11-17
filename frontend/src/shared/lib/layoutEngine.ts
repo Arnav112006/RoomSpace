@@ -1,6 +1,6 @@
-import type { FurnitureItem, Layout, Placement, RoomDimensions, ScoredLayout } from "@/shared/types";
+import type { FurnitureItem, Layout, Opening, Placement, RoomDimensions, ScoredLayout } from "@/shared/types";
 import { roomDimensionsCm } from "./units";
-import { validateLayoutLocal } from "./constraintEngine";
+import { DEFAULT_MIN_CLEARANCE_CM, conflictingOpening, validateLayoutLocal } from "./constraintEngine";
 
 // ---------------------------------------------------------------------
 // Stage 4 — Candidate Layout Generation
@@ -13,6 +13,8 @@ import { validateLayoutLocal } from "./constraintEngine";
 
 const WALL_MARGIN_CM = 10;
 const ITEM_GAP_CM = 12;
+/** How far to slide an item along its wall when it hits a door or window. */
+const OPENING_STEP_CM = 10;
 
 type WallSide = "north" | "south" | "east" | "west";
 export type LayoutStyle = "wall-hug" | "zoned" | "symmetric" | "corner-focused";
@@ -52,22 +54,25 @@ function placeOnWall(
   let y = 0;
   let rotation_deg: 0 | 90 | 180 | 270 = 0;
 
+  // rotation_deg has to agree with whether the footprint was swapped,
+  // or the constraint engine and renderer see a different shape from the
+  // one positioned here (docs/room-model.md §2).
   if (wall === "north") {
     x = cursor;
     y = WALL_MARGIN_CM;
-    rotation_deg = 0;
+    rotation_deg = rotated ? 90 : 0;
   } else if (wall === "south") {
     x = cursor;
     y = widthCm - d - WALL_MARGIN_CM;
-    rotation_deg = 180;
+    rotation_deg = rotated ? 270 : 180;
   } else if (wall === "west") {
     x = WALL_MARGIN_CM;
     y = cursor;
-    rotation_deg = 90;
+    rotation_deg = rotated ? 90 : 0;
   } else {
     x = lengthCm - w - WALL_MARGIN_CM;
     y = cursor;
-    rotation_deg = 270;
+    rotation_deg = rotated ? 270 : 180;
   }
 
   return {
@@ -81,6 +86,32 @@ function wallSpan(wall: WallSide, lengthCm: number, widthCm: number): number {
 }
 
 /**
+ * Puts `item` on `wall` at the first spot from `cursor` onwards that fits
+ * before the wall's end and keeps clear of every door swing and window.
+ * Returns null if the wall has no such spot left.
+ */
+function placeAvoidingOpenings(
+  wall: WallSide,
+  cursor: number,
+  entry: WorkingItem,
+  lengthCm: number,
+  widthCm: number,
+  rotate: boolean,
+  openings: Opening[]
+): { placement: Placement; nextCursor: number } | null {
+  const span = wallSpan(wall, lengthCm, widthCm);
+  for (let at = cursor; ; at += OPENING_STEP_CM) {
+    const { placement, nextCursor } = placeOnWall(wall, at, entry.item, lengthCm, widthCm, rotate);
+    // nextCursor - ITEM_GAP_CM is where the item ends along the wall.
+    if (nextCursor - ITEM_GAP_CM + WALL_MARGIN_CM > span) return null;
+    const candidate: Placement = { item_id: entry.id, label: entry.item.label, ...placement };
+    if (!conflictingOpening(candidate, openings, lengthCm, widthCm)) {
+      return { placement: candidate, nextCursor };
+    }
+  }
+}
+
+/**
  * Runs one placement strategy over the furniture list, returning a
  * single candidate's placements. Fixed items (existing furniture the
  * user marked immovable) are anchored to their given zone first;
@@ -91,7 +122,8 @@ function wallSpan(wall: WallSide, lengthCm: number, widthCm: number): number {
 function buildCandidate(
   items: WorkingItem[],
   dimensions: RoomDimensions,
-  style: LayoutStyle
+  style: LayoutStyle,
+  openings: Opening[]
 ): Placement[] {
   const [lengthCm, widthCm] = roomDimensionsCm(dimensions);
   const cursors: Record<WallSide, number> = { north: WALL_MARGIN_CM, south: WALL_MARGIN_CM, east: WALL_MARGIN_CM, west: WALL_MARGIN_CM };
@@ -102,11 +134,20 @@ function buildCandidate(
 
   // Anchor fixed items to their stated (or inferred) wall first so
   // movable furniture is generated around them, never on top of them.
-  for (const { item, id } of fixed) {
+  for (const entry of fixed) {
+    const { item, id } = entry;
     const wall = zoneToWall(item.approximate_zone) ?? "north";
-    const { placement, nextCursor } = placeOnWall(wall, cursors[wall], item, lengthCm, widthCm, false);
-    cursors[wall] = nextCursor;
-    placements.push({ item_id: id, label: item.label, ...placement });
+    const spot = placeAvoidingOpenings(wall, cursors[wall], entry, lengthCm, widthCm, false, openings);
+    if (spot) {
+      cursors[wall] = spot.nextCursor;
+      placements.push(spot.placement);
+    } else {
+      // No clear spot on its wall: keep it there anyway and let the
+      // constraint engine report the problem, since a fixed item can't move.
+      const { placement, nextCursor } = placeOnWall(wall, cursors[wall], item, lengthCm, widthCm, false);
+      cursors[wall] = nextCursor;
+      placements.push({ item_id: id, label: item.label, ...placement });
+    }
   }
 
   // Style controls ordering and which walls get priority — this is
@@ -133,17 +174,16 @@ function buildCandidate(
   }
 
   let wallIdx = 0;
-  for (const { item, id } of order) {
+  for (const entry of order) {
+    const { item, id } = entry;
     let placed = false;
     for (let attempt = 0; attempt < wallSequence.length; attempt++) {
       const wall = wallSequence[(wallIdx + attempt) % wallSequence.length];
-      const span = wallSpan(wall, lengthCm, widthCm);
       const rotate = style === "symmetric" && attempt % 2 === 1;
-      const [w] = footprintFor(item, wall === "east" || wall === "west" ? !rotate : rotate);
-      if (cursors[wall] + w + WALL_MARGIN_CM <= span) {
-        const { placement, nextCursor } = placeOnWall(wall, cursors[wall], item, lengthCm, widthCm, rotate);
-        cursors[wall] = nextCursor;
-        placements.push({ item_id: id, label: item.label, ...placement });
+      const spot = placeAvoidingOpenings(wall, cursors[wall], entry, lengthCm, widthCm, rotate, openings);
+      if (spot) {
+        cursors[wall] = spot.nextCursor;
+        placements.push(spot.placement);
         wallIdx = (wallIdx + attempt + 1) % wallSequence.length;
         placed = true;
         break;
@@ -172,14 +212,15 @@ function buildCandidate(
 export function generateCandidates(
   furniture: FurnitureItem[],
   dimensions: RoomDimensions,
-  roomId: string
+  roomId: string,
+  openings: Opening[] = []
 ): { style: LayoutStyle; layout: Layout }[] {
   const items: WorkingItem[] = furniture.map((item, i) => ({ item, id: `item-${i}-${item.type}` }));
   const styles: LayoutStyle[] = ["wall-hug", "zoned", "symmetric", "corner-focused"];
 
   return styles.map((style) => {
-    const placements = buildCandidate(items, dimensions, style);
-    const { feasible, violations } = validateLayoutLocal(dimensions, placements);
+    const placements = buildCandidate(items, dimensions, style, openings);
+    const { feasible, violations } = validateLayoutLocal(dimensions, placements, DEFAULT_MIN_CLEARANCE_CM, openings);
     return {
       style,
       layout: { id: `${roomId}-${style}`, room_id: roomId, placements, feasible, violations },
