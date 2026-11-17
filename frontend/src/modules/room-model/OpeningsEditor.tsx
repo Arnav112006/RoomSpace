@@ -2,6 +2,7 @@ import { useRoomStore } from "@/shared/store/roomStore";
 import type { Opening, WallSide } from "@/shared/types";
 import { openingFitErrors } from "@/shared/lib/constraintEngine";
 import { OpeningsLayer } from "@/shared/ui/OpeningsLayer";
+import { NumberInput } from "@/shared/ui/NumberInput";
 
 const WALLS: WallSide[] = ["north", "south", "east", "west"];
 
@@ -81,8 +82,6 @@ function OpeningRow({
   onChange: (id: string, patch: Partial<Opening>) => void;
   onRemove: (id: string) => void;
 }) {
-  const num = (v: string) => (v === "" ? 0 : Number(v));
-
   return (
     <div className="border border-white/10 rounded-sm p-2 space-y-2">
       <div className="flex items-center justify-between">
@@ -108,21 +107,19 @@ function OpeningRow({
         </label>
         <label className="text-xs text-ink-muted">
           Offset (cm)
-          <input
-            type="number"
+          <NumberInput
             min={0}
             value={o.offset_cm}
-            onChange={(e) => onChange(o.id, { offset_cm: Math.max(0, num(e.target.value)) })}
+            onChange={(offset_cm) => onChange(o.id, { offset_cm })}
             className="w-full mt-1"
           />
         </label>
         <label className="text-xs text-ink-muted">
           Width (cm)
-          <input
-            type="number"
+          <NumberInput
             min={1}
             value={o.width_cm}
-            onChange={(e) => onChange(o.id, { width_cm: Math.max(1, num(e.target.value)) })}
+            onChange={(width_cm) => onChange(o.id, { width_cm })}
             className="w-full mt-1"
           />
         </label>

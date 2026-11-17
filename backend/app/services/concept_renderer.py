@@ -49,13 +49,14 @@ def _ellipsis(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, m
     if draw.textlength(text, font=font) <= max_width:
         return text
     shortened = text
-    while shortened and draw.textlength(shortened + "…", font=font) > max_width:
+    while shortened and draw.textlength(shortened + "...", font=font) > max_width:
         shortened = shortened[:-1]
-    return shortened + "…"
+    return shortened + "..."
 
 
 def _rupees(amount: float) -> str:
-    return f"₹{amount:,.0f}"
+    # Pillow's bundled font has no ₹ glyph; "Rs" renders everywhere.
+    return f"Rs {amount:,.0f}"
 
 
 def _photo_for(key: str, width: int, height: int) -> Image.Image | None:
@@ -106,7 +107,7 @@ def render_concept_image(
     tiny_font = _font(12)
 
     draw.text((_MARGIN, 26), "ROOMSPACE  /  FINAL CONCEPT", font=small_font, fill=_BRASS)
-    draw.text((_MARGIN, 52), f"{length_cm / 30.48:.0f} ft × {width_cm / 30.48:.0f} ft room", font=title_font, fill=_PAPER)
+    draw.text((_MARGIN, 52), f"{length_cm / 30.48:.0f} ft x {width_cm / 30.48:.0f} ft room", font=title_font, fill=_PAPER)
     if theme:
         draw.text((canvas_w - _MARGIN, 64), theme.upper(), font=meta_font, fill=_BRASS, anchor="ra")
 
@@ -196,10 +197,13 @@ def render_concept_image(
     status_colour = _BRASS if not violations else _RED
     draw.text((_MARGIN, footer_y), f"{len(placements)} placements  ·  {chosen} products selected", font=meta_font, fill=_PAPER)
     draw.text((_MARGIN, footer_y + 28), status, font=small_font, fill=status_colour)
+    disclaimer = "Photos show selected products, not a photoreal render"
     if violations:
+        # Stop short of the right-aligned disclaimer on the same line.
+        room_for_text = canvas_w - _MARGIN * 2 - 190 - int(draw.textlength(disclaimer, font=tiny_font)) - 24
         draw.text(
             (_MARGIN + 190, footer_y + 28),
-            _ellipsis(draw, violations[0], small_font, canvas_w - _MARGIN * 2 - 190),
+            _ellipsis(draw, violations[0], small_font, max(room_for_text, 40)),
             font=small_font, fill=_MUTED,
         )
     budget_text = f"Total  {_rupees(total)}"
@@ -208,7 +212,7 @@ def render_concept_image(
     draw.text((canvas_w - _MARGIN, footer_y + 4), budget_text, font=meta_font, fill=_BRASS, anchor="ra")
     draw.text(
         (canvas_w - _MARGIN, footer_y + 30),
-        "Photos show selected products, not a photoreal render",
+        disclaimer,
         font=tiny_font, fill=_MUTED, anchor="ra",
     )
 

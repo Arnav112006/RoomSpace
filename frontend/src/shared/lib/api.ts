@@ -71,6 +71,16 @@ export const api = {
       body: JSON.stringify(openings),
     }),
 
+  /** Several photos of the same room; the backend merges detections. */
+  analyzePhotos: (roomId: string, files: File[]) => {
+    const form = new FormData();
+    for (const file of files) form.append("photos", file);
+    return request<RoomResponse>(`/api/rooms/${roomId}/photos`, {
+      method: "POST",
+      body: form,
+    });
+  },
+
   analyzePhoto: (roomId: string, file: File) => {
     const form = new FormData();
     form.append("photo", file);

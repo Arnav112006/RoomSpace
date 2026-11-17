@@ -35,8 +35,8 @@ interface RoomStoreState {
   draftOccasion: string;
   draftBudget: string;
   draftFurnitureNeeds: string[];
-  photoFile: File | null;
-  photoPreviewUrl: string | null;
+  photoFiles: File[];
+  photoPreviewUrls: string[]; // same order as photoFiles
 
   // Stage 1-3 result
   room: RoomResponse | null;
@@ -82,7 +82,9 @@ interface RoomStoreState {
   setDraftDimensions: (d: Partial<RoomDimensions>) => void;
   setDraftField: (field: "draftRoomType" | "draftTheme" | "draftOccasion" | "draftBudget", value: string) => void;
   toggleFurnitureNeed: (need: string) => void;
-  setPhotoFile: (file: File | null) => void;
+  addPhotos: (files: File[]) => void;
+  removePhoto: (index: number) => void;
+  clearPhotos: () => void;
   submitRoomInput: () => Promise<void>;
 
   updateFurnitureItem: (index: number, patch: Partial<FurnitureItem>) => void;
@@ -104,6 +106,9 @@ interface RoomStoreState {
 
   reset: () => void;
 }
+
+/** Matches backend room_analysis.MAX_PHOTOS_PER_ROOM. */
+export const MAX_PHOTOS = 8;
 
 const DEFAULT_DIMENSIONS: RoomDimensions = { length: 12, width: 10, unit: "ft" };
 
@@ -135,8 +140,8 @@ export const useRoomStore = create<RoomStoreState>((set, get) => ({
   draftOccasion: "",
   draftBudget: "",
   draftFurnitureNeeds: ["bed", "wardrobe"],
-  photoFile: null,
-  photoPreviewUrl: null,
+  photoFiles: [],
+  photoPreviewUrls: [],
 
   room: null,
   furniture: [],
@@ -184,10 +189,27 @@ export const useRoomStore = create<RoomStoreState>((set, get) => ({
         ? s.draftFurnitureNeeds.filter((n) => n !== need)
         : [...s.draftFurnitureNeeds, need],
     })),
-  setPhotoFile: (file) => {
-    const prev = get().photoPreviewUrl;
-    if (prev) URL.revokeObjectURL(prev);
-    set({ photoFile: file, photoPreviewUrl: file ? URL.createObjectURL(file) : null });
+  addPhotos: (files) => {
+    const s = get();
+    const room = MAX_PHOTOS - s.photoFiles.length;
+    const added = files.filter((f) => f.type.startsWith("image/")).slice(0, Math.max(0, room));
+    set({
+      photoFiles: [...s.photoFiles, ...added],
+      photoPreviewUrls: [...s.photoPreviewUrls, ...added.map((f) => URL.createObjectURL(f))],
+    });
+  },
+  removePhoto: (index) => {
+    const s = get();
+    const url = s.photoPreviewUrls[index];
+    if (url) URL.revokeObjectURL(url);
+    set({
+      photoFiles: s.photoFiles.filter((_, i) => i !== index),
+      photoPreviewUrls: s.photoPreviewUrls.filter((_, i) => i !== index),
+    });
+  },
+  clearPhotos: () => {
+    get().photoPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
+    set({ photoFiles: [], photoPreviewUrls: [] });
   },
 
   submitRoomInput: async () => {
@@ -205,10 +227,10 @@ export const useRoomStore = create<RoomStoreState>((set, get) => ({
       let finalRoom = room;
       let furniture: FurnitureItem[] = [];
 
-      if (s.photoFile) {
+      if (s.photoFiles.length > 0) {
         set({ analyzing: true, analysisError: null });
         try {
-          finalRoom = await api.analyzePhoto(room.id, s.photoFile);
+          finalRoom = await api.analyzePhotos(room.id, s.photoFiles);
           furniture = finalRoom.furniture;
         } catch (err) {
           set({ analysisError: err instanceof ApiError ? err.message : "Photo analysis failed." });
@@ -249,7 +271,7 @@ export const useRoomStore = create<RoomStoreState>((set, get) => ({
         furniture,
         openings: finalRoom.openings ?? [],
         creating: false,
-        step: s.photoFile ? "analysis" : "model",
+        step: s.photoFiles.length > 0 ? "analysis" : "model",
       });
     } catch (err) {
       set({
@@ -468,7 +490,8 @@ export const useRoomStore = create<RoomStoreState>((set, get) => ({
     });
   },
 
-  reset: () =>
+  reset: () => {
+    get().clearPhotos();
     set({
       step: "input",
       draftDimensions: DEFAULT_DIMENSIONS,
@@ -477,8 +500,8 @@ export const useRoomStore = create<RoomStoreState>((set, get) => ({
       draftOccasion: "",
       draftBudget: "",
       draftFurnitureNeeds: ["bed", "wardrobe"],
-      photoFile: null,
-      photoPreviewUrl: null,
+      photoFiles: [],
+      photoPreviewUrls: [],
       room: null,
       furniture: [],
       openings: [],
@@ -494,5 +517,6 @@ export const useRoomStore = create<RoomStoreState>((set, get) => ({
       activeViolations: [],
       commandLog: [],
       versions: [],
-    }),
+    });
+  },
 }));

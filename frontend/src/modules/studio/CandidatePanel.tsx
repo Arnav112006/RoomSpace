@@ -29,7 +29,7 @@ export function CandidatePanel() {
         <p className="text-sm text-ink-muted">No feasible layout was generated for this furniture set — try removing an item or enlarging the room.</p>
       )}
 
-      <div className="space-y-2">
+      <div className="space-y-2 stagger">
         {rankedLayouts.map((scored, i) => {
           const isSelected = scored.layout.id === selectedLayoutId;
           const style = scored.layout.id.split("-").pop();
@@ -37,8 +37,11 @@ export function CandidatePanel() {
             <button
               key={scored.layout.id}
               onClick={() => selectLayout(scored.layout.id)}
-              className={`w-full text-left rounded-sm border p-3 transition-colors ${
-                isSelected ? "border-blueprint-500 bg-blueprint-500/10" : "border-white/12 bg-white/[0.03] hover:border-white/30"
+              aria-pressed={isSelected}
+              className={`w-full text-left rounded-sm border p-3 transition-all duration-300 active:scale-[0.98] ${
+                isSelected
+                  ? "border-blueprint-500 bg-blueprint-500/10 shadow-glow"
+                  : "border-white/12 bg-white/[0.03] hover:border-white/30 hover:bg-white/[0.05] hover:-translate-y-0.5"
               }`}
             >
               <div className="flex items-center justify-between mb-2">
@@ -52,8 +55,10 @@ export function CandidatePanel() {
                   <div key={key} title={label} className="flex flex-col items-center gap-0.5">
                     <div className="h-8 w-full bg-white/8 rounded-sm relative overflow-hidden">
                       <div
-                        className="absolute bottom-0 left-0 right-0 bg-blueprint-600"
-                        style={{ height: `${Math.round(scored.scores[key] * 100)}%` }}
+                        className={`absolute bottom-0 left-0 right-0 origin-bottom animate-grow-y transition-colors duration-300 ${
+                          isSelected ? "bg-gradient-to-t from-blueprint-500 to-blueprint-700" : "bg-blueprint-600/70"
+                        }`}
+                        style={{ height: `${Math.round(scored.scores[key] * 100)}%`, animationDelay: `${150 + i * 60}ms` }}
                       />
                     </div>
                     <span className="text-[9px] text-ink-muted">{label}</span>

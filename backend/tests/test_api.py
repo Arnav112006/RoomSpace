@@ -137,3 +137,42 @@ def test_validate_layout_uses_room_openings(client, room_id):
     assert body["violations"] == ["Wardrobe blocks the door on the south wall"]
     assert 'data-opening="door"' in body["svg"]
     assert 'data-opening="window"' in body["svg"]
+
+
+# --- several room photos ----------------------------------------------------
+
+def _fake_detection(monkeypatch):
+    """Stands in for YOLO: each 'photo' lists its furniture as text."""
+    from app.api import rooms
+    from app.schemas.furniture import FurnitureItem
+
+    async def fake_detect(photo, length_cm, width_cm):
+        names = (await photo.read()).decode().split(",")
+        return [FurnitureItem(type=n, label=n.title(), width_cm=50, depth_cm=50) for n in names if n]
+
+    monkeypatch.setattr(rooms.room_analysis, "detect_furniture", fake_detect)
+
+
+def test_photos_are_merged_without_double_counting(client, room_id, monkeypatch):
+    _fake_detection(monkeypatch)
+    files = [
+        ("photos", ("a.jpg", b"bed,chair", "image/jpeg")),
+        ("photos", ("b.jpg", b"bed,chair,chair", "image/jpeg")),
+        ("photos", ("c.jpg", b"sofa", "image/jpeg")),
+    ]
+    body = client.post(f"/api/rooms/{room_id}/photos", files=files).json()
+    assert sorted(f["type"] for f in body["furniture"]) == ["bed", "chair", "chair", "sofa"]
+
+
+def test_too_many_photos_are_rejected(client, room_id, monkeypatch):
+    _fake_detection(monkeypatch)
+    files = [("photos", (f"{i}.jpg", b"bed", "image/jpeg")) for i in range(9)]
+    response = client.post(f"/api/rooms/{room_id}/photos", files=files)
+    assert response.status_code == 422
+
+
+def test_bad_photo_error_names_the_file(client, room_id):
+    files = [("photos", ("empty.jpg", b"", "image/jpeg"))]
+    response = client.post(f"/api/rooms/{room_id}/photos", files=files)
+    assert response.status_code == 400
+    assert response.json()["detail"].startswith("empty.jpg:")

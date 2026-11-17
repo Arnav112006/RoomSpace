@@ -1,12 +1,13 @@
 import { useRoomStore } from "@/shared/store/roomStore";
 import { Card, EmptyState, SectionHeading } from "@/shared/ui/Primitives";
 import type { FurnitureType } from "@/shared/types";
+import { NumberInput } from "@/shared/ui/NumberInput";
 
 const TYPE_OPTIONS: FurnitureType[] = ["bed", "wardrobe", "table", "chair", "desk", "sofa", "shelf", "other"];
 const ZONE_OPTIONS = ["north wall", "south wall", "east wall", "west wall", "center", "left corner", "right corner"];
 
 export function AnalysisStage() {
-  const { furniture, photoPreviewUrl, analysisError, updateFurnitureItem, removeFurnitureItem, confirmRoomModel } = useRoomStore();
+  const { furniture, photoPreviewUrls, analysisError, updateFurnitureItem, removeFurnitureItem, confirmRoomModel } = useRoomStore();
   const detected = furniture.filter((f) => f.source === "vision");
   const manual = furniture.filter((f) => f.source !== "vision");
 
@@ -15,7 +16,7 @@ export function AnalysisStage() {
       <SectionHeading
         eyebrow="Stage 2"
         title="Verify what the vision model found"
-        description="A YOLO model (fine-tuned for indoor furniture) detected these items from your photo. Computer vision can misjudge type, size or position — correct anything that's off before we build the room model."
+        description="A pretrained YOLO model detected these items from your photos. Computer vision can misjudge type, size or position — correct anything that's off before we build the room model."
       />
 
       {analysisError && (
@@ -25,13 +26,20 @@ export function AnalysisStage() {
       )}
 
       <div className="grid grid-cols-[1fr,1.4fr] gap-5">
-        {photoPreviewUrl && (
-          <Card className="p-2 h-fit">
-            <img src={photoPreviewUrl} alt="Uploaded room" className="w-full rounded-sm object-cover" />
+        {photoPreviewUrls.length > 0 && (
+          <Card className="p-2 h-fit space-y-2 lg:sticky lg:top-24 stagger">
+            {photoPreviewUrls.map((url, i) => (
+              <img key={url} src={url} alt={`Room photo ${i + 1}`} className="w-full rounded-sm object-cover" />
+            ))}
+            {photoPreviewUrls.length > 1 && (
+              <p className="text-[11px] text-ink-muted px-1">
+                {photoPreviewUrls.length} photos — furniture seen in more than one is counted once.
+              </p>
+            )}
           </Card>
         )}
 
-        <div className="space-y-3">
+        <div className="space-y-3 stagger">
           {detected.length === 0 ? (
             <Card>
               <EmptyState
@@ -69,19 +77,19 @@ export function AnalysisStage() {
                     </label>
                     <label className="text-xs text-ink-muted">
                       Width (cm)
-                      <input
-                        type="number"
+                      <NumberInput
+                        min={1}
                         value={item.width_cm}
-                        onChange={(e) => updateFurnitureItem(index, { width_cm: Number(e.target.value) })}
+                        onChange={(width_cm) => updateFurnitureItem(index, { width_cm })}
                         className="w-full mt-1"
                       />
                     </label>
                     <label className="text-xs text-ink-muted">
                       Depth (cm)
-                      <input
-                        type="number"
+                      <NumberInput
+                        min={1}
                         value={item.depth_cm}
-                        onChange={(e) => updateFurnitureItem(index, { depth_cm: Number(e.target.value) })}
+                        onChange={(depth_cm) => updateFurnitureItem(index, { depth_cm })}
                         className="w-full mt-1"
                       />
                     </label>
@@ -118,7 +126,16 @@ export function AnalysisStage() {
               {manual.map((item, i) => (
                 <Card key={`m-${i}`} className="flex items-center justify-between py-3">
                   <span className="text-sm">{item.label}</span>
-                  <Badge_ />
+                  <span className="flex items-center gap-3">
+                    <Badge_ />
+                    <button
+                      className="text-xs text-clay-400 hover:underline"
+                      onClick={() => removeFurnitureItem(furniture.indexOf(item))}
+                      aria-label={`Remove ${item.label}`}
+                    >
+                      Remove
+                    </button>
+                  </span>
                 </Card>
               ))}
             </>

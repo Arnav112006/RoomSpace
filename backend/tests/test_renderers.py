@@ -116,3 +116,8 @@ def test_svg_draws_doors_and_windows(demo_dims):
 def test_concept_image_with_openings_is_a_png(demo_dims):
     png = concept_renderer.render_concept_image(demo_dims, [], {}, openings=[DEMO_DOOR, DEMO_WINDOW])
     assert png.startswith(b"\x89PNG")
+
+
+def test_concept_text_is_ascii_so_the_default_font_can_draw_it():
+    # Pillow's bundled font has no ₹ or × glyph; they render as boxes.
+    assert concept_renderer._rupees(18999) == "Rs 18,999"

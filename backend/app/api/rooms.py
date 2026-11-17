@@ -67,6 +67,28 @@ async def analyze_room_photo(room_id: str, photo: UploadFile = File(...)):
     room.furniture = furniture
     return room_store.save(room)
 
+
+@router.post("/{room_id}/photos", response_model=RoomResponse)
+async def analyze_room_photos(room_id: str, photos: list[UploadFile] = File(...)):
+    """Several photos of the same room (different angles). Each is run
+    through detection, then merged so furniture seen in more than one
+    photo is not counted twice (see room_analysis.merge_detections)."""
+    room = room_store.get(room_id)
+    if len(photos) > room_analysis.MAX_PHOTOS_PER_ROOM:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Upload at most {room_analysis.MAX_PHOTOS_PER_ROOM} photos per room",
+        )
+    room_length_cm, room_width_cm = units.room_dimensions_cm(room.dimensions)
+    per_photo = []
+    for photo in photos:
+        try:
+            per_photo.append(await room_analysis.detect_furniture(photo, room_length_cm, room_width_cm))
+        except HTTPException as e:
+            raise HTTPException(status_code=e.status_code, detail=f"{photo.filename}: {e.detail}") from e
+    room.furniture = room_analysis.merge_detections(per_photo)
+    return room_store.save(room)
+
 @router.post("/{room_id}/validate-layout")
 def validate_layout(room_id: str, placements: list[Placement]):
     room = room_store.get(room_id)

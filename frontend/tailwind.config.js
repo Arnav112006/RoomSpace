@@ -58,9 +58,38 @@ export default {
       backgroundSize: {
         grid: "28px 28px",
       },
+      keyframes: {
+        "fade-up": {
+          from: { opacity: "0", transform: "translateY(10px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },
+        shimmer: { from: { backgroundPosition: "-200% 0" }, to: { backgroundPosition: "200% 0" } },
+        "grow-y": { from: { transform: "scaleY(0)" }, to: { transform: "scaleY(1)" } },
+        "pulse-ring": {
+          "0%": { boxShadow: "0 0 0 0 currentColor", opacity: "0.6" },
+          "100%": { boxShadow: "0 0 0 6px currentColor", opacity: "0" },
+        },
+        drift: {
+          "0%, 100%": { transform: "translate3d(0,0,0) scale(1)" },
+          "50%": { transform: "translate3d(4%, 3%, 0) scale(1.08)" },
+        },
+        "soft-pulse": { "0%, 100%": { opacity: "1" }, "50%": { opacity: "0.55" } },
+      },
+      animation: {
+        "fade-up": "fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both",
+        "fade-in": "fade-in 0.4s ease-out both",
+        shimmer: "shimmer 1.6s linear infinite",
+        "grow-y": "grow-y 0.7s cubic-bezier(0.22, 1, 0.36, 1) both",
+        "pulse-ring": "pulse-ring 1.8s ease-out infinite",
+        drift: "drift 28s ease-in-out infinite",
+        "soft-pulse": "soft-pulse 1.6s ease-in-out infinite",
+      },
       boxShadow: {
         panel: "0 1px 0 0 rgba(255,255,255,0.04) inset, 0 12px 32px -16px rgba(0,0,0,0.6)",
         glow: "0 0 0 1px rgba(91,155,212,0.25), 0 0 24px -4px rgba(91,155,212,0.35)",
+        "glow-brass": "0 0 0 1px rgba(203,162,92,0.45), 0 10px 30px -12px rgba(203,162,92,0.45)",
+        lift: "0 1px 0 0 rgba(255,255,255,0.05) inset, 0 20px 40px -20px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.08)",
       },
     },
   },

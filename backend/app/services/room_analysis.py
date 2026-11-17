@@ -196,3 +196,29 @@ async def detect_furniture(
     return _results_to_furniture(
         results[0], image.width, image.height, room_length_cm, room_width_cm
     )
+
+MAX_PHOTOS_PER_ROOM = 8
+
+
+def merge_detections(per_photo: list[list[FurnitureItem]]) -> list[FurnitureItem]:
+    """Combines detections from several photos of the same room.
+
+    Several photos usually show the same furniture from different angles,
+    so simply concatenating them would count one bed three times. Instead,
+    for each furniture type, keep the items from whichever single photo
+    saw the most of that type (the earliest photo wins a tie). Two chairs
+    in one photo and one in another gives two chairs, not three.
+
+    Like single-photo detection, the result is a starting point the user
+    verifies, not ground truth.
+    """
+    best: dict[FurnitureType, list[FurnitureItem]] = {}
+    for items in per_photo:
+        by_type: dict[FurnitureType, list[FurnitureItem]] = {}
+        for item in items:
+            by_type.setdefault(item.type, []).append(item)
+        for furniture_type, group in by_type.items():
+            if len(group) > len(best.get(furniture_type, [])):
+                best[furniture_type] = group
+    # dicts keep insertion order: types appear in the order first seen.
+    return [item for group in best.values() for item in group]
