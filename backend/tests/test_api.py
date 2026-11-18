@@ -82,6 +82,16 @@ def test_concept_image_returns_png(client, room_id):
     assert response.content.startswith(b"\x89PNG")
 
 
+def test_concept_image_accepts_the_theme_picked_on_the_products_stage(client, room_id):
+    payload = {"placements": [BED], "selections": {}, "theme": "Bohemian"}
+    response = client.post(f"/api/rooms/{room_id}/concept-image", json=payload)
+    assert response.status_code == 200
+    assert response.content.startswith(b"\x89PNG")
+
+    payload["theme"] = "x" * 41
+    assert client.post(f"/api/rooms/{room_id}/concept-image", json=payload).status_code == 422
+
+
 def test_empty_photo_upload_is_rejected(client, room_id):
     # Rejected before the YOLO model is loaded, so this needs no ML deps.
     response = client.post(

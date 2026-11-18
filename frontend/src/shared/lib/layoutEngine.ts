@@ -1,6 +1,14 @@
 import type { FurnitureItem, Layout, Opening, Placement, RoomDimensions, ScoredLayout } from "@/shared/types";
 import { roomDimensionsCm } from "./units";
-import { MIN_CLEARANCE_CM, conflictingOpening, validateLayoutLocal } from "./constraintEngine";
+import {
+  EPSILON_CM,
+  MIN_CLEARANCE_CM,
+  clearanceBetween,
+  conflictingOpening,
+  overlaps,
+  validateLayoutLocal,
+  withinBounds,
+} from "./constraintEngine";
 
 // ---------------------------------------------------------------------
 // Stage 4 — Candidate Layout Generation
@@ -12,9 +20,8 @@ import { MIN_CLEARANCE_CM, conflictingOpening, validateLayoutLocal } from "./con
 // ---------------------------------------------------------------------
 
 const WALL_MARGIN_CM = 10;
-const ITEM_GAP_CM = 12;
-/** How far to slide an item along its wall when it hits a door or window. */
-const OPENING_STEP_CM = 10;
+/** Step used when sliding an item along a wall or across the floor. */
+const SEARCH_STEP_CM = 10;
 
 type WallSide = "north" | "south" | "east" | "west";
 export type LayoutStyle = "wall-hug" | "zoned" | "symmetric" | "corner-focused";
@@ -38,15 +45,20 @@ function footprintFor(item: FurnitureItem, rotated: boolean): [number, number] {
   return rotated ? [item.depth_cm, item.width_cm] : [item.width_cm, item.depth_cm];
 }
 
-/** Places one item flush against `wall`, advancing the wall's cursor. */
+/**
+ * Places one item flush against `wall` (WALL_MARGIN_CM off it), starting
+ * `at` cm along the wall. By default its back (depth) faces the wall;
+ * `rotate` turns it a quarter so its side faces the wall instead.
+ * Returns the placement and how far it extends along the wall.
+ */
 function placeOnWall(
   wall: WallSide,
-  cursor: number,
+  at: number,
   item: FurnitureItem,
   lengthCm: number,
   widthCm: number,
   rotate: boolean
-): { placement: Omit<Placement, "item_id" | "label">; nextCursor: number } {
+): { placement: Omit<Placement, "item_id" | "label">; alongCm: number } {
   const rotated = wall === "east" || wall === "west" ? !rotate : rotate;
   const [w, d] = footprintFor(item, rotated);
 
@@ -58,26 +70,26 @@ function placeOnWall(
   // or the constraint engine and renderer see a different shape from the
   // one positioned here (docs/room-model.md §2).
   if (wall === "north") {
-    x = cursor;
+    x = at;
     y = WALL_MARGIN_CM;
     rotation_deg = rotated ? 90 : 0;
   } else if (wall === "south") {
-    x = cursor;
+    x = at;
     y = widthCm - d - WALL_MARGIN_CM;
     rotation_deg = rotated ? 270 : 180;
   } else if (wall === "west") {
     x = WALL_MARGIN_CM;
-    y = cursor;
+    y = at;
     rotation_deg = rotated ? 90 : 0;
   } else {
     x = lengthCm - w - WALL_MARGIN_CM;
-    y = cursor;
+    y = at;
     rotation_deg = rotated ? 270 : 180;
   }
 
   return {
     placement: { x_cm: x, y_cm: y, width_cm: item.width_cm, depth_cm: item.depth_cm, rotation_deg },
-    nextCursor: cursor + (wall === "north" || wall === "south" ? w : d) + ITEM_GAP_CM,
+    alongCm: wall === "north" || wall === "south" ? w : d,
   };
 }
 
@@ -86,73 +98,275 @@ function wallSpan(wall: WallSide, lengthCm: number, widthCm: number): number {
 }
 
 /**
- * Puts `item` on `wall` at the first spot from `cursor` onwards that fits
- * before the wall's end and keeps clear of every door swing and window.
- * Returns null if the wall has no such spot left.
+ * True if `candidate` can join `placed` without breaking any hard rule:
+ * inside the room, not overlapping or within MIN_CLEARANCE_CM of another
+ * item, and clear of door swings and windows. The same rules the
+ * constraint engine applies to the finished layout, checked one item at a
+ * time so the generator never builds a layout it already knows is invalid.
  */
-function placeAvoidingOpenings(
-  wall: WallSide,
-  cursor: number,
-  entry: WorkingItem,
+export function fitsAmong(
+  candidate: Placement,
+  placed: Placement[],
+  openings: Opening[],
   lengthCm: number,
-  widthCm: number,
-  rotate: boolean,
-  openings: Opening[]
-): { placement: Placement; nextCursor: number } | null {
-  const span = wallSpan(wall, lengthCm, widthCm);
-  for (let at = cursor; ; at += OPENING_STEP_CM) {
-    const { placement, nextCursor } = placeOnWall(wall, at, entry.item, lengthCm, widthCm, rotate);
-    // nextCursor - ITEM_GAP_CM is where the item ends along the wall.
-    if (nextCursor - ITEM_GAP_CM + WALL_MARGIN_CM > span) return null;
-    const candidate: Placement = { item_id: entry.id, label: entry.item.label, ...placement };
-    if (!conflictingOpening(candidate, openings, lengthCm, widthCm)) {
-      return { placement: candidate, nextCursor };
+  widthCm: number
+): boolean {
+  if (!withinBounds(candidate, lengthCm, widthCm)) return false;
+  if (conflictingOpening(candidate, openings, lengthCm, widthCm)) return false;
+  return placed.every(
+    (other) =>
+      other.item_id === candidate.item_id ||
+      (!overlaps(candidate, other) && clearanceBetween(candidate, other) >= MIN_CLEARANCE_CM - EPSILON_CM)
+  );
+}
+
+/** Positions along a wall in the order a style wants to try them. */
+function scanOrder(style: LayoutStyle, first: number, last: number): number[] {
+  const forward: number[] = [];
+  for (let at = first; at <= last + 1e-9; at += SEARCH_STEP_CM) forward.push(at);
+  if (forward.length === 0 || forward[forward.length - 1] < last - 1e-9) forward.push(last);
+  switch (style) {
+    case "zoned":
+      // From the far end back toward the start.
+      return [...forward].reverse();
+    case "symmetric": {
+      // Middle of the wall first, then outward.
+      const mid = (first + last) / 2;
+      return [...forward].sort((a, b) => Math.abs(a - mid) - Math.abs(b - mid));
     }
+    case "corner-focused": {
+      // Alternate between the two corners, working inward.
+      const out: number[] = [];
+      for (let i = 0, j = forward.length - 1; i <= j; i++, j--) {
+        out.push(forward[i]);
+        if (j !== i) out.push(forward[j]);
+      }
+      return out;
+    }
+    case "wall-hug":
+    default:
+      return forward;
   }
 }
 
 /**
+ * First spot on `wall` where the item fits, trying positions in the
+ * style's scan order — or, with `nearAlong`, nearest that point first.
+ */
+function findSpotOnWall(
+  wall: WallSide,
+  entry: WorkingItem,
+  rotate: boolean,
+  style: LayoutStyle,
+  placed: Placement[],
+  openings: Opening[],
+  lengthCm: number,
+  widthCm: number,
+  nearAlong?: number,
+  avoidSpan?: [number, number]
+): Placement | null {
+  const span = wallSpan(wall, lengthCm, widthCm);
+  const { alongCm } = placeOnWall(wall, 0, entry.item, lengthCm, widthCm, rotate);
+  const last = span - WALL_MARGIN_CM - alongCm;
+  if (last < WALL_MARGIN_CM) return null;
+  let positions = scanOrder(style, WALL_MARGIN_CM, last);
+  if (nearAlong !== undefined) {
+    positions = [...positions].sort(
+      (a, b) => Math.abs(a + alongCm / 2 - nearAlong) - Math.abs(b + alongCm / 2 - nearAlong)
+    );
+  }
+  for (const at of positions) {
+    // Skip spots that overlap `avoidSpan` along the wall (e.g. a window).
+    if (avoidSpan && at < avoidSpan[1] && at + alongCm > avoidSpan[0]) continue;
+    const { placement } = placeOnWall(wall, at, entry.item, lengthCm, widthCm, rotate);
+    const candidate: Placement = { item_id: entry.id, label: entry.item.label, ...placement };
+    if (fitsAmong(candidate, placed, openings, lengthCm, widthCm)) return candidate;
+  }
+  return null;
+}
+
+/** Any free spot on the open floor, nearest `near` (default: the room's centre) first. */
+function findSpotOnFloor(
+  entry: WorkingItem,
+  placed: Placement[],
+  openings: Opening[],
+  lengthCm: number,
+  widthCm: number,
+  near: [number, number] = [lengthCm / 2, widthCm / 2]
+): Placement | null {
+  const spots: { candidate: Placement; distance: number }[] = [];
+  for (const rotated of [false, true]) {
+    const [w, d] = footprintFor(entry.item, rotated);
+    for (let x = WALL_MARGIN_CM; x + w <= lengthCm - WALL_MARGIN_CM + 1e-9; x += SEARCH_STEP_CM) {
+      for (let y = WALL_MARGIN_CM; y + d <= widthCm - WALL_MARGIN_CM + 1e-9; y += SEARCH_STEP_CM) {
+        const candidate: Placement = {
+          item_id: entry.id,
+          label: entry.item.label,
+          x_cm: x,
+          y_cm: y,
+          width_cm: entry.item.width_cm,
+          depth_cm: entry.item.depth_cm,
+          rotation_deg: rotated ? 90 : 0,
+        };
+        const distance = Math.hypot(x + w / 2 - near[0], y + d / 2 - near[1]);
+        spots.push({ candidate, distance });
+      }
+    }
+  }
+  spots.sort((a, b) => a.distance - b.distance);
+  return spots.find(({ candidate }) => fitsAmong(candidate, placed, openings, lengthCm, widthCm))?.candidate ?? null;
+}
+
+// ---------------------------------------------------------------------
+// Stage 9 helpers — find a valid spot for one item in an existing layout
+// ---------------------------------------------------------------------
+
+function asEntry(p: Placement): WorkingItem {
+  return {
+    id: p.item_id,
+    item: {
+      type: "other",
+      label: p.label,
+      width_cm: p.width_cm,
+      depth_cm: p.depth_cm,
+      is_fixed: false,
+      source: "manual",
+    },
+  };
+}
+
+/**
+ * A valid spot for `item` next to `opening` (a window or door): along the
+ * opening's wall, as close to it as the rules allow, else on the floor
+ * nearby. Never inside a door swing or covering a window — the usual
+ * constraint rules decide. Null if nowhere near it is free.
+ */
+export function placeNear(
+  item: Placement,
+  opening: Opening,
+  others: Placement[],
+  openings: Opening[],
+  dimensions: RoomDimensions
+): Placement | null {
+  const [lengthCm, widthCm] = roomDimensionsCm(dimensions);
+  const entry = asEntry(item);
+  const centre = opening.offset_cm + opening.width_cm / 2;
+  // Truly beside the opening first; only then partly in front of it
+  // (still allowed for windows, as long as it isn't blocked).
+  const span: [number, number] = [opening.offset_cm, opening.offset_cm + opening.width_cm];
+  for (const avoid of [span, undefined]) {
+    for (const rotate of [false, true]) {
+      const spot = findSpotOnWall(opening.wall, entry, rotate, "wall-hug", others, openings, lengthCm, widthCm, centre, avoid);
+      if (spot) return spot;
+    }
+  }
+  const point: [number, number] =
+    opening.wall === "north" ? [centre, 0] :
+    opening.wall === "south" ? [centre, widthCm] :
+    opening.wall === "west" ? [0, centre] : [lengthCm, centre];
+  return findSpotOnFloor(entry, others, openings, lengthCm, widthCm, point);
+}
+
+/**
+ * Swaps a product's real size into a placement and keeps it valid if it
+ * can: the product may grow from any corner of the original spot (so an
+ * item against the right wall grows leftward) or stay centred on it.
+ * Returns the adjusted placement, or null if the product doesn't fit there.
+ */
+export function fitProductAt(
+  placement: Placement,
+  product: { width_cm: number; depth_cm: number },
+  others: Placement[],
+  openings: Opening[],
+  dimensions: RoomDimensions
+): Placement | null {
+  const [lengthCm, widthCm] = roomDimensionsCm(dimensions);
+  const turned = placement.rotation_deg === 90 || placement.rotation_deg === 270;
+  const [oldW, oldD] = turned ? [placement.depth_cm, placement.width_cm] : [placement.width_cm, placement.depth_cm];
+  const [newW, newD] = turned ? [product.depth_cm, product.width_cm] : [product.width_cm, product.depth_cm];
+  const dx = oldW - newW;
+  const dy = oldD - newD;
+  const anchors: [number, number][] = [
+    [0, 0], // top-left corner stays put
+    [dx, 0], // top-right
+    [0, dy], // bottom-left
+    [dx, dy], // bottom-right
+    [dx / 2, dy / 2], // centred
+  ];
+  for (const [ox, oy] of anchors) {
+    const candidate: Placement = {
+      ...placement,
+      x_cm: placement.x_cm + ox,
+      y_cm: placement.y_cm + oy,
+      width_cm: product.width_cm,
+      depth_cm: product.depth_cm,
+    };
+    if (fitsAmong(candidate, others, openings, lengthCm, widthCm)) return candidate;
+  }
+  return null;
+}
+
+/** The first valid spot anywhere: along a wall, else on the open floor. */
+export function findFreeSpot(
+  item: Placement,
+  others: Placement[],
+  openings: Opening[],
+  dimensions: RoomDimensions
+): Placement | null {
+  const [lengthCm, widthCm] = roomDimensionsCm(dimensions);
+  const entry = asEntry(item);
+  for (const rotate of [false, true]) {
+    for (const wall of ["north", "east", "south", "west"] as WallSide[]) {
+      const spot = findSpotOnWall(wall, entry, rotate, "wall-hug", others, openings, lengthCm, widthCm);
+      if (spot) return spot;
+    }
+  }
+  return findSpotOnFloor(entry, others, openings, lengthCm, widthCm);
+}
+
+/**
  * Runs one placement strategy over the furniture list, returning a
- * single candidate's placements. Fixed items (existing furniture the
- * user marked immovable) are anchored to their given zone first;
- * movable items are then distributed around them. Openings (doors,
- * windows) are not items and are never placed here — see
- * docs/room-model.md.
+ * single candidate's placements. Every item is put in the first spot that
+ * keeps the layout valid so far: along a wall (back to the wall, then
+ * turned sideways), and only then out on the open floor. Fixed items
+ * (existing furniture the user marked immovable) go first, on their own
+ * wall. Openings (doors, windows) are not items and are never placed
+ * here — see docs/room-model.md.
  */
 function buildCandidate(
   items: WorkingItem[],
   dimensions: RoomDimensions,
   style: LayoutStyle,
-  openings: Opening[]
-): Placement[] {
+  openings: Opening[],
+  placeFirst: string[] = [],
+  scanStyle: LayoutStyle = style
+): { placements: Placement[]; unplaced: string[] } {
   const [lengthCm, widthCm] = roomDimensionsCm(dimensions);
-  const cursors: Record<WallSide, number> = { north: WALL_MARGIN_CM, south: WALL_MARGIN_CM, east: WALL_MARGIN_CM, west: WALL_MARGIN_CM };
   const placements: Placement[] = [];
+  const unplaced: string[] = [];
 
   const fixed = items.filter((w) => w.item.is_fixed);
   const movable = items.filter((w) => !w.item.is_fixed);
 
-  // Anchor fixed items to their stated (or inferred) wall first so
-  // movable furniture is generated around them, never on top of them.
+  // Fixed items stay on their stated (or inferred) wall. If even that
+  // wall has no valid spot, keep them there anyway and let the
+  // constraint engine report it — a fixed item can't be moved.
   for (const entry of fixed) {
-    const { item, id } = entry;
-    const wall = zoneToWall(item.approximate_zone) ?? "north";
-    const spot = placeAvoidingOpenings(wall, cursors[wall], entry, lengthCm, widthCm, false, openings);
+    const wall = zoneToWall(entry.item.approximate_zone) ?? "north";
+    const spot =
+      findSpotOnWall(wall, entry, false, "wall-hug", placements, openings, lengthCm, widthCm) ??
+      findSpotOnWall(wall, entry, true, "wall-hug", placements, openings, lengthCm, widthCm);
     if (spot) {
-      cursors[wall] = spot.nextCursor;
-      placements.push(spot.placement);
+      placements.push(spot);
     } else {
-      // No clear spot on its wall: keep it there anyway and let the
-      // constraint engine report the problem, since a fixed item can't move.
-      const { placement, nextCursor } = placeOnWall(wall, cursors[wall], item, lengthCm, widthCm, false);
-      cursors[wall] = nextCursor;
-      placements.push({ item_id: id, label: item.label, ...placement });
+      unplaced.push(entry.id);
+      const { placement } = placeOnWall(wall, WALL_MARGIN_CM, entry.item, lengthCm, widthCm, false);
+      placements.push({ item_id: entry.id, label: entry.item.label, ...placement });
     }
   }
 
-  // Style controls ordering and which walls get priority — this is
-  // what makes each candidate visibly different rather than a shuffled
-  // duplicate of the others.
+  // Style controls item order, which walls get priority and where along
+  // a wall items are tried — what makes each candidate visibly different.
   let order = [...movable].sort((a, b) => b.item.width_cm * b.item.depth_cm - a.item.width_cm * a.item.depth_cm);
   let wallSequence: WallSide[];
 
@@ -172,41 +386,79 @@ function buildCandidate(
       wallSequence = ["west", "north", "east", "south"];
       break;
   }
+  // Items that failed in an earlier attempt jump the queue (see generateCandidates).
+  if (placeFirst.length > 0) {
+    const rank = (e: WorkingItem) => (placeFirst.includes(e.id) ? placeFirst.indexOf(e.id) : placeFirst.length);
+    order = [...order].sort((a, b) => rank(a) - rank(b));
+  }
 
   let wallIdx = 0;
   for (const entry of order) {
-    const { item, id } = entry;
-    let placed = false;
-    for (let attempt = 0; attempt < wallSequence.length; attempt++) {
-      const wall = wallSequence[(wallIdx + attempt) % wallSequence.length];
-      const rotate = style === "symmetric" && attempt % 2 === 1;
-      const spot = placeAvoidingOpenings(wall, cursors[wall], entry, lengthCm, widthCm, rotate, openings);
-      if (spot) {
-        cursors[wall] = spot.nextCursor;
-        placements.push(spot.placement);
-        wallIdx = (wallIdx + attempt + 1) % wallSequence.length;
-        placed = true;
-        break;
+    let spot: Placement | null = null;
+    // Back to the wall first, then sideways, on each wall in turn
+    // (starting from the wall after the previous item's, to spread out).
+    search: for (const rotate of [false, true]) {
+      for (let attempt = 0; attempt < wallSequence.length; attempt++) {
+        const wall = wallSequence[(wallIdx + attempt) % wallSequence.length];
+        spot = findSpotOnWall(wall, entry, rotate, scanStyle, placements, openings, lengthCm, widthCm);
+        if (spot) {
+          wallIdx = (wallIdx + attempt + 1) % wallSequence.length;
+          break search;
+        }
       }
     }
-    if (!placed) {
-      // Perimeter is full — drop it toward the room's free interior.
-      // This may be infeasible (flagged by the constraint engine),
-      // which is the intended signal that the room is over-furnished.
-      const [w, d] = footprintFor(item, false);
+    spot ??= findSpotOnFloor(entry, placements, openings, lengthCm, widthCm);
+
+    if (spot) {
+      placements.push(spot);
+    } else {
+      unplaced.push(entry.id);
+      // Nowhere valid left: drop it in the middle so the constraint
+      // engine flags the room as over-furnished.
+      const [w, d] = footprintFor(entry.item, false);
       placements.push({
-        item_id: id,
-        label: item.label,
+        item_id: entry.id,
+        label: entry.item.label,
         x_cm: Math.max(WALL_MARGIN_CM, (lengthCm - w) / 2),
         y_cm: Math.max(WALL_MARGIN_CM, (widthCm - d) / 2),
-        width_cm: item.width_cm,
-        depth_cm: item.depth_cm,
+        width_cm: entry.item.width_cm,
+        depth_cm: entry.item.depth_cm,
         rotation_deg: 0,
       });
     }
   }
 
-  return placements;
+  return { placements, unplaced };
+}
+
+/**
+ * Builds one style's candidate. Placement is greedy, so an early item can
+ * take the space a later one needed. When that happens, retry with the
+ * item that didn't fit placed first. If that still leaves something out,
+ * keep the style's wall and item order but try spots from the corners
+ * (symmetric centring wastes space in tight rooms). Keeps the attempt
+ * that fits the most furniture.
+ */
+function bestCandidate(
+  items: WorkingItem[],
+  dimensions: RoomDimensions,
+  style: LayoutStyle,
+  openings: Opening[]
+): Placement[] {
+  let best = buildCandidate(items, dimensions, style, openings);
+  const placeFirst: string[] = [];
+  for (let retry = 0; retry < items.length && best.unplaced.length > 0; retry++) {
+    const next = best.unplaced.find((id) => !placeFirst.includes(id));
+    if (!next) break;
+    placeFirst.push(next);
+    const attempt = buildCandidate(items, dimensions, style, openings, placeFirst);
+    if (attempt.unplaced.length < best.unplaced.length) best = attempt;
+  }
+  if (best.unplaced.length > 0 && style !== "wall-hug") {
+    const attempt = buildCandidate(items, dimensions, style, openings, [], "wall-hug");
+    if (attempt.unplaced.length < best.unplaced.length) best = attempt;
+  }
+  return best.placements;
 }
 
 export function generateCandidates(
@@ -219,7 +471,7 @@ export function generateCandidates(
   const styles: LayoutStyle[] = ["wall-hug", "zoned", "symmetric", "corner-focused"];
 
   return styles.map((style) => {
-    const placements = buildCandidate(items, dimensions, style, openings);
+    const placements = bestCandidate(items, dimensions, style, openings);
     const { feasible, violations } = validateLayoutLocal(dimensions, placements, MIN_CLEARANCE_CM, openings);
     return {
       style,

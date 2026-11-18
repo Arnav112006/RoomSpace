@@ -1,5 +1,5 @@
 import { useRoomStore } from "@/shared/store/roomStore";
-import { Card, EmptyState, SectionHeading } from "@/shared/ui/Primitives";
+import { Card, EmptyState, SectionHeading, Spinner } from "@/shared/ui/Primitives";
 import type { FurnitureType } from "@/shared/types";
 import { NumberInput } from "@/shared/ui/NumberInput";
 
@@ -18,6 +18,8 @@ export function AnalysisStage() {
         title="Verify what the vision model found"
         description="A pretrained YOLO model detected these items from your photos. Computer vision can misjudge type, size or position — correct anything that's off before we build the room model."
       />
+
+      <StyleSuggestionCard />
 
       {analysisError && (
         <p className="text-sm text-clay-400 bg-clay-500/10 border border-clay-500/30 rounded-sm px-3 py-2 mb-4">
@@ -154,4 +156,67 @@ export function AnalysisStage() {
 
 function Badge_() {
   return <span className="text-xs text-ink-muted font-mono">will be placed by the layout engine</span>;
+}
+
+/**
+ * CLIP's reading of the photos: which theme the room already looks like and
+ * its wall/floor colours. Suggestions only — the user decides.
+ */
+function StyleSuggestionCard() {
+  const { styleSuggestion: s, suggestingStyle, room, viewTheme, setViewTheme, styleOverrides, applyRoomColours } = useRoomStore();
+  if (suggestingStyle) {
+    return (
+      <Card className="mb-5 flex items-center gap-3 text-sm text-ink-muted">
+        <Spinner label="Reading your room's style…" />
+        <span className="text-xs">(the first run loads the CLIP model, which can take a minute)</span>
+      </Card>
+    );
+  }
+  if (!s || !room) return null;
+  const current = (viewTheme ?? room.theme).toLowerCase();
+  const usingColours = styleOverrides.wall === s.wall && styleOverrides.floor === s.floor;
+  return (
+    <Card className="mb-5 space-y-3 animate-fade-up">
+      <div>
+        <p className="font-medium">Your room's style</p>
+        <p className="text-xs text-ink-muted">
+          A pretrained CLIP model compared your photos with descriptions of each theme. It's a suggestion — pick one
+          to preview it in 3D, or keep your own choice ({room.theme}).
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {s.themes.slice(0, 3).map(({ theme, score }) => (
+          <button
+            key={theme}
+            onClick={() => setViewTheme(theme)}
+            className={`rounded-full border px-3 py-1 text-sm transition-colors ${
+              current === theme.toLowerCase()
+                ? "border-brass-400/80 bg-brass-400/10 text-paper"
+                : "border-white/10 text-ink-muted hover:text-paper hover:border-white/25"
+            }`}
+          >
+            {theme} <span className="font-mono text-xs text-brass-700">{Math.round(score * 100)}%</span>
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-4 text-xs text-ink-muted">
+        <span className="inline-flex items-center gap-1.5">
+          Walls <span className="h-4 w-4 rounded ring-1 ring-white/20" style={{ background: s.wall }} aria-hidden />
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          Floor <span className="h-4 w-4 rounded ring-1 ring-white/20" style={{ background: s.floor }} aria-hidden />
+        </span>
+        <span className="inline-flex items-center gap-1">
+          Palette
+          {s.palette.map((c) => (
+            <span key={c} className="h-4 w-4 rounded ring-1 ring-white/20" style={{ background: c }} title={c} aria-hidden />
+          ))}
+        </span>
+        <label className="inline-flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" checked={usingColours} onChange={(e) => applyRoomColours(e.target.checked)} />
+          Use my room's wall and floor colours in 3D
+        </label>
+      </div>
+    </Card>
+  );
 }

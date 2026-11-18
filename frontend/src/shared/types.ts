@@ -135,9 +135,48 @@ export interface LayoutVersion {
 
 export type MoveTarget = "left-wall" | "right-wall" | "back-wall" | "front-wall" | "window" | "center";
 
+/** Ceiling-light styles the 3D view can draw. */
+export type PendantStyle = "cone" | "disc" | "globe" | "cage" | "chandelier" | "woven";
+/** Room fixtures and dressing the user can add or remove by command. */
+export type FixtureKind = "pendant" | "fan" | "rug" | "plants" | "floorLamp";
+
+/** Floor finishes the 3D view can draw. */
+export type FloorFinish = "greyTiles" | "paleTiles" | "oakPlanks" | "concrete" | "herringbone" | "terracotta";
+
 export type ParsedCommandAction =
   | { kind: "move"; label: string; target: MoveTarget }
   | { kind: "remove"; label: string }
   | { kind: "add"; itemType: FurnitureType; near?: "window" | "door" | "center" }
   | { kind: "rotate"; label: string }
-  | { kind: "unknown"; raw: string };
+  // Appearance only — these never change the layout or its feasibility.
+  | { kind: "colour"; target: "walls" | "floor" | "item"; label?: string; colour: string; name: string }
+  | { kind: "floor"; floor: FloorFinish; colour: string; name: string }
+  | { kind: "fixture"; fixture: FixtureKind; on: boolean; variant?: PendantStyle }
+  | { kind: "theme"; theme: string }
+  | { kind: "reset-style" }
+  | { kind: "unknown"; raw: string; hint?: string };
+
+/** Colours the user set by command or took from their photos; visual only. */
+export interface StyleOverrides {
+  wall?: string;
+  floor?: string;
+  floorKind?: FloorFinish;
+  /** placement item_id -> colour of that piece's main material. */
+  items: Record<string, string>;
+  /** Fixtures switched on/off by command; unset means the theme's default. */
+  fixtures?: {
+    pendant?: PendantStyle | "none";
+    fan?: boolean;
+    rug?: boolean;
+    plants?: boolean;
+    floorLamp?: boolean;
+  };
+}
+
+/** Mirrors backend/app/schemas/style.py. */
+export interface StyleSuggestion {
+  themes: { theme: string; score: number }[];
+  palette: string[];
+  wall: string;
+  floor: string;
+}

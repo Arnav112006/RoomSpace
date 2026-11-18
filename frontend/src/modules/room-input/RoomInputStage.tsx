@@ -3,9 +3,9 @@ import { MAX_PHOTOS, useRoomStore } from "@/shared/store/roomStore";
 import { Card, Field, Spinner } from "@/shared/ui/Primitives";
 import { RoomPreview } from "./RoomPreview";
 import { NumberInput } from "@/shared/ui/NumberInput";
+import { THEMES } from "@/shared/lib/catalog";
 
 const ROOM_TYPES = ["Bedroom", "Living Room", "Home Office", "Dining Room", "Kids Room", "Studio Apartment"];
-const THEMES = ["Modern", "Minimalist", "Scandinavian", "Industrial", "Traditional", "Bohemian"];
 const FURNITURE_OPTIONS = [
   { id: "bed", label: "Bed" },
   { id: "wardrobe", label: "Wardrobe" },

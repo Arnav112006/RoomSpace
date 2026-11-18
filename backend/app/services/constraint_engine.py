@@ -246,8 +246,9 @@ def validate_layout(
             else:
                 gap = clearance_between(a, b)
                 if gap < min_clearance_cm - EPSILON_CM:
+                    # Rounded down, so a 74.99 cm gap never reads as "75cm (minimum 75cm)".
                     violations.append(
-                        f"Only {gap:.0f}cm between {a.label} and {b.label} "
+                        f"Only {math.floor(gap)}cm between {a.label} and {b.label} "
                         f"(minimum {min_clearance_cm:.0f}cm)"
                     )
 

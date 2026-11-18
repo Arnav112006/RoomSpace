@@ -2,17 +2,20 @@ from uuid import uuid4
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import Response
+from starlette.concurrency import run_in_threadpool
 
 from app.schemas.concept import ConceptImageRequest
 from app.schemas.layout import Placement
 from app.schemas.opening import Opening
 from app.schemas.room import RoomCreate, RoomDimensions, RoomResponse
+from app.schemas.style import StyleSuggestion
 from app.services import (
     constraint_engine,
     concept_renderer,
     layout_renderer,
     room_analysis,
     room_store,
+    style_suggestion,
     zone_placement,
     units,
 )
@@ -89,6 +92,28 @@ async def analyze_room_photos(room_id: str, photos: list[UploadFile] = File(...)
     room.furniture = room_analysis.merge_detections(per_photo)
     return room_store.save(room)
 
+@router.post("/{room_id}/style-suggestion", response_model=StyleSuggestion)
+async def suggest_room_style(room_id: str, photos: list[UploadFile] = File(...)):
+    """Which theme the room already looks like (zero-shot CLIP, run locally)
+    and its dominant wall/floor colours. Suggestions only: nothing about the
+    room is changed."""
+    room = room_store.get(room_id)
+    if len(photos) > room_analysis.MAX_PHOTOS_PER_ROOM:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Upload at most {room_analysis.MAX_PHOTOS_PER_ROOM} photos per room",
+        )
+    images = [await style_suggestion.read_image(photo) for photo in photos]
+    try:
+        # CLIP is CPU-heavy; keep it off the event loop.
+        return await run_in_threadpool(style_suggestion.suggest_style, images, room.room_type)
+    except style_suggestion.MLUnavailable as e:
+        raise HTTPException(
+            status_code=503,
+            detail="Style suggestions need the ML extras: pip install -r requirements-ml.txt",
+        ) from e
+
+
 @router.post("/{room_id}/validate-layout")
 def validate_layout(room_id: str, placements: list[Placement]):
     room = room_store.get(room_id)
@@ -117,7 +142,8 @@ def concept_image(room_id: str, request: ConceptImageRequest):
         room.dimensions,
         request.placements,
         request.selections,
-        theme=room.theme,
+        # The theme picked on the products stage, if any; otherwise the room's.
+        theme=request.theme or room.theme,
         budget=room.budget,
         violations=violations,
         openings=room.openings,

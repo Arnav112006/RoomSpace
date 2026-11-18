@@ -203,3 +203,12 @@ def test_known_invalid_layouts_are_rejected(demo_dims, layout):
     feasible, violations = validate_layout(demo_dims, layout)
     assert not feasible
     assert violations
+
+
+def test_gap_just_under_minimum_is_not_reported_as_the_minimum(demo_dims):
+    # 74.99 cm used to print as "Only 75cm ... (minimum 75cm)".
+    feasible, violations = validate_layout(
+        demo_dims, [P("Bed", x=10, y=10, w=100, d=100), P("Chair", x=184.99, y=10, w=50, d=50)]
+    )
+    assert not feasible
+    assert violations == ["Only 74cm between Bed and Chair (minimum 75cm)"]
