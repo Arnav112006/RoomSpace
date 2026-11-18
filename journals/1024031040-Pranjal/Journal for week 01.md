@@ -8,4 +8,4 @@
 
 **Synthesis and Decisions:** Implementing all of these features at once would make priorities unclear. We divided the system into modules and chose the core room model and layout workflow as the starting point.
 
-**Next Steps:** Establish the repository structure and a validated room data model. No code snippet applies to this planning milestone.
+**Next Steps:** Establish the repository structure and a validated room data model.
