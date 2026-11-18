@@ -209,7 +209,8 @@ export function validateLayoutLocal(
         const gap = clearanceBetween(a, b);
         if (gap < minClearanceCm - EPSILON_CM) {
           violations.push(
-            `Only ${Math.round(gap)}cm between ${a.label} and ${b.label} (minimum ${minClearanceCm.toFixed(0)}cm)`
+            // Rounded down, so a 74.99 cm gap never reads as "75cm (minimum 75cm)".
+            `Only ${Math.floor(gap)}cm between ${a.label} and ${b.label} (minimum ${minClearanceCm.toFixed(0)}cm)`
           );
         }
       }

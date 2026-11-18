@@ -10,11 +10,20 @@ import type {
   RoomDimensions,
   RoomResponse,
   ScoredLayout,
+  StyleOverrides,
+  StyleSuggestion,
 } from "@/shared/types";
 import { api, ApiError } from "@/shared/lib/api";
-import { generateCandidates, rankCandidates, type LayoutStyle } from "@/shared/lib/layoutEngine";
+import {
+  findFreeSpot,
+  generateCandidates,
+  placeNear,
+  rankCandidates,
+  type LayoutStyle,
+} from "@/shared/lib/layoutEngine";
 import { MIN_CLEARANCE_CM, openingFitErrors, validateLayoutLocal } from "@/shared/lib/constraintEngine";
-import { parseCommand, describeAction } from "@/shared/lib/commandParser";
+import { commandCandidates, describeAction, parseCommand, splitClauses } from "@/shared/lib/commandParser";
+import { decide } from "@/shared/lib/commandModel";
 import { roomDimensionsCm } from "@/shared/lib/units";
 import { defaultFootprint } from "@/shared/lib/furniture";
 
@@ -73,6 +82,18 @@ interface RoomStoreState {
   // Stage 11
   versions: LayoutVersion[];
 
+  // Appearance (3D views only — never part of the layout or its checks)
+  /** Theme the 3D views show; null means the room's own theme. */
+  viewTheme: string | null;
+  styleOverrides: StyleOverrides;
+  /** CLIP's reading of the uploaded photos, if the backend has the ML extras. */
+  styleSuggestion: StyleSuggestion | null;
+  suggestingStyle: boolean;
+  setViewTheme: (theme: string | null) => void;
+  resetStyle: () => void;
+  /** Use (or stop using) the wall and floor colours found in the photos. */
+  applyRoomColours: (on: boolean) => void;
+
   // Stage 12 — products the user picked for each placement. An empty entry
   // means "use the top recommendation", so the final image always has one.
   chosenProducts: Record<string, Product>;
@@ -101,7 +122,10 @@ interface RoomStoreState {
   selectLayout: (layoutId: string) => void;
 
   revalidateActive: (placements: Placement[], note: string) => Promise<void>;
+  /** Runs a typed command; several clauses ("… and …") run in order. */
   applyCommand: (text: string) => Promise<void>;
+  /** One clause. `typed` is set when the local model chose this command for what the user typed. */
+  applyClause: (text: string, typed?: string) => Promise<void>;
 
   restoreVersion: (versionId: string) => void;
 
@@ -169,6 +193,19 @@ export const useRoomStore = create<RoomStoreState>((set, get) => ({
   commandLog: [],
   versions: [],
 
+  viewTheme: null,
+  styleOverrides: { items: {} },
+  styleSuggestion: null,
+  suggestingStyle: false,
+  setViewTheme: (theme) => set({ viewTheme: theme }),
+  resetStyle: () => set({ styleOverrides: { items: {} } }),
+  applyRoomColours: (on) =>
+    set((s) => {
+      const { wall: _w, floor: _f, ...rest } = s.styleOverrides;
+      if (!on || !s.styleSuggestion) return { styleOverrides: rest };
+      return { styleOverrides: { ...rest, wall: s.styleSuggestion.wall, floor: s.styleSuggestion.floor } };
+    }),
+
   chosenProducts: {},
   chooseProduct: (itemId, product) =>
     set((s) => ({ chosenProducts: { ...s.chosenProducts, [itemId]: product } })),
@@ -230,6 +267,14 @@ export const useRoomStore = create<RoomStoreState>((set, get) => ({
 
       if (s.photoFiles.length > 0) {
         set({ analyzing: true, analysisError: null });
+        // CLIP style suggestion runs alongside; it's optional, so a failure
+        // (e.g. backend without the ML extras) just means no suggestion.
+        set({ suggestingStyle: true, styleSuggestion: null });
+        api
+          .styleSuggestion(room.id, s.photoFiles)
+          .then((suggestion) => set({ styleSuggestion: suggestion }))
+          .catch(() => set({ styleSuggestion: null }))
+          .finally(() => set({ suggestingStyle: false }));
         try {
           finalRoom = await api.analyzePhotos(room.id, s.photoFiles);
           furniture = finalRoom.furniture;
@@ -398,24 +443,118 @@ export const useRoomStore = create<RoomStoreState>((set, get) => ({
   },
 
   applyCommand: async (text) => {
+    // "remove the hanging light and add a fan" → one command per clause, in order.
+    for (const clause of splitClauses(text)) await get().applyClause(clause);
+  },
+
+  applyClause: async (text, typed) => {
     const s = get();
+    // When the local model picked this command, log what the user typed.
+    const logText = typed ?? text;
+    const via = typed ? `Understood as “${text}” · ` : "";
     const knownLabels = s.activePlacements.map((p) => p.label);
     const action = parseCommand(text, knownLabels);
     const summary = describeAction(action);
 
+    if (action.kind === "unknown" && !action.hint && !typed) {
+      // The rules didn't understand it: ask the local language model which
+      // known command it is closest to in meaning, then run that command
+      // through the same rules. Nothing is applied on a weak match.
+      try {
+        const { matches } = await api.interpretCommand(text, commandCandidates(knownLabels));
+        const reading = decide(matches, text);
+        if (reading.status === "apply") return get().applyClause(reading.command, text);
+        if (reading.status === "suggest") {
+          set({ commandLog: [{ id: newId("cmd"), text: logText, result: via + `Not sure — did you mean “${reading.command}”?`, ok: false }, ...get().commandLog] });
+          return;
+        }
+      } catch {
+        // Backend unreachable or without the ML extras: fall back to the rules' message.
+      }
+    }
+
     if (action.kind === "unknown") {
-      set({ commandLog: [{ id: newId("cmd"), text, result: `Not recognized — try "move the sofa to the left wall".`, ok: false }, ...s.commandLog] });
+      const result = action.hint ?? `Not recognized — try "move the sofa to the left wall" or "paint the walls beige".`;
+      set({ commandLog: [{ id: newId("cmd"), text: logText, result: via + result, ok: false }, ...get().commandLog] });
       return;
     }
 
+    // Appearance commands change only how the 3D views look, so they skip
+    // validation: the layout and its feasibility are untouched.
+    const styled = (patch: Partial<RoomStoreState>) =>
+      set({ ...patch, commandLog: [{ id: newId("cmd"), text: logText, result: via + `Applied — ${summary}`, ok: true }, ...get().commandLog] });
+    if (action.kind === "colour") {
+      const o = s.styleOverrides;
+      if (action.target === "walls") return styled({ styleOverrides: { ...o, wall: action.colour } });
+      if (action.target === "floor") return styled({ styleOverrides: { ...o, floor: action.colour } });
+      const item = s.activePlacements.find((p) => p.label === action.label);
+      if (!item) {
+        set({ commandLog: [{ id: newId("cmd"), text: logText, result: via + `Couldn't find "${action.label}" in this layout.`, ok: false }, ...get().commandLog] });
+        return;
+      }
+      return styled({ styleOverrides: { ...o, items: { ...o.items, [item.item_id]: action.colour } } });
+    }
+    if (action.kind === "floor") {
+      return styled({ styleOverrides: { ...s.styleOverrides, floorKind: action.floor, floor: action.colour } });
+    }
+    if (action.kind === "theme") return styled({ viewTheme: action.theme });
+    if (action.kind === "reset-style") return styled({ styleOverrides: { items: {} } });
+    if (action.kind === "fixture") {
+      const fixtures = { ...(s.styleOverrides.fixtures ?? {}) };
+      if (action.fixture === "pendant") {
+        fixtures.pendant = !action.on ? "none" : action.variant ?? (fixtures.pendant === "none" ? undefined : fixtures.pendant);
+      } else {
+        fixtures[action.fixture] = action.on;
+      }
+      return styled({ styleOverrides: { ...s.styleOverrides, fixtures } });
+    }
+
     let nextPlacements = [...s.activePlacements];
+    const openings = s.room?.openings ?? [];
+    // Reject a command without changing the layout, with a reason.
+    const reject = (reason: string) =>
+      set({ commandLog: [{ id: newId("cmd"), text: logText, result: via + reason, ok: false }, ...get().commandLog] });
 
     if (action.kind === "remove") {
       nextPlacements = nextPlacements.filter((p) => p.label !== action.label);
     } else if (action.kind === "rotate") {
-      nextPlacements = nextPlacements.map((p) =>
-        p.label === action.label ? { ...p, rotation_deg: (((p.rotation_deg + 90) % 360) as Placement["rotation_deg"]) } : p
-      );
+      // Turn about the item's centre (not its corner) and keep it inside the room.
+      const [lengthCm, widthCm] = s.room ? roomDimensionsCm(s.room.dimensions) : [Infinity, Infinity];
+      nextPlacements = nextPlacements.map((p) => {
+        if (p.label !== action.label) return p;
+        const swapped = p.rotation_deg === 90 || p.rotation_deg === 270;
+        const [w, d] = swapped ? [p.depth_cm, p.width_cm] : [p.width_cm, p.depth_cm];
+        const [cx, cy] = [p.x_cm + w / 2, p.y_cm + d / 2];
+        const [nw, nd] = [d, w];
+        const clamp = (v: number, max: number) => Math.min(Math.max(v, 0), Math.max(0, max));
+        return {
+          ...p,
+          rotation_deg: ((p.rotation_deg + 90) % 360) as Placement["rotation_deg"],
+          x_cm: Math.round(clamp(cx - nw / 2, lengthCm - nw) * 10) / 10,
+          y_cm: Math.round(clamp(cy - nd / 2, widthCm - nd) * 10) / 10,
+        };
+      });
+    } else if (action.kind === "move" && action.target === "window" && s.room) {
+      // Beside the room's actual window (the one nearest the item if
+      // there are several), never in front of it.
+      const item = nextPlacements.find((p) => p.label === action.label);
+      const windows = openings.filter((o) => o.kind === "window");
+      if (!item) return reject(`Couldn't find "${action.label}" in this layout.`);
+      if (windows.length === 0) return reject("This room has no window yet — add one in Stage 3 (Room model).");
+      const others = nextPlacements.filter((p) => p.item_id !== item.item_id);
+      const [lengthCm, widthCm] = roomDimensionsCm(s.room.dimensions);
+      const centreOf = (o: (typeof windows)[number]): [number, number] => {
+        const along = o.offset_cm + o.width_cm / 2;
+        return o.wall === "north" ? [along, 0] : o.wall === "south" ? [along, widthCm] : o.wall === "west" ? [0, along] : [lengthCm, along];
+      };
+      const nearest = [...windows].sort(
+        (a, b) =>
+          Math.hypot(centreOf(a)[0] - item.x_cm, centreOf(a)[1] - item.y_cm) -
+          Math.hypot(centreOf(b)[0] - item.x_cm, centreOf(b)[1] - item.y_cm)
+      )[0];
+      const spot = placeNear(item, nearest, others, openings, s.room.dimensions);
+      if (!spot) return reject(`There's no free spot by the window for the ${action.label.toLowerCase()}.`);
+      nextPlacements = nextPlacements.map((p) => (p.item_id === item.item_id ? spot : p));
     } else if (action.kind === "move" && s.room) {
       const [lengthCm, widthCm] = roomDimensionsCm(s.room.dimensions);
       nextPlacements = nextPlacements.map((p) => {
@@ -430,7 +569,6 @@ export const useRoomStore = create<RoomStoreState>((set, get) => ({
           case "back-wall":
             return { ...p, x_cm: p.x_cm, y_cm: 10 };
           case "front-wall":
-          case "window":
             return { ...p, x_cm: p.x_cm, y_cm: widthCm - d - 10 };
           case "center":
             return { ...p, x_cm: (lengthCm - w) / 2, y_cm: (widthCm - d) / 2 };
@@ -438,18 +576,27 @@ export const useRoomStore = create<RoomStoreState>((set, get) => ({
             return p;
         }
       });
-    } else if (action.kind === "add") {
+    } else if (action.kind === "add" && s.room) {
       const [w, d] = defaultFootprint(action.itemType);
       const label = `${action.itemType.charAt(0).toUpperCase()}${action.itemType.slice(1)} ${nextPlacements.length + 1}`;
-      nextPlacements.push({
-        item_id: newId("item"),
-        label,
-        x_cm: 20,
-        y_cm: 20,
-        width_cm: w,
-        depth_cm: d,
-        rotation_deg: 0,
-      });
+      const item: Placement = { item_id: newId("item"), label, x_cm: 0, y_cm: 0, width_cm: w, depth_cm: d, rotation_deg: 0 };
+      // "near the window/door" uses that opening; otherwise any free spot.
+      const target =
+        action.near === "window" || action.near === "door"
+          ? openings.find((o) => o.kind === action.near)
+          : undefined;
+      if ((action.near === "window" || action.near === "door") && !target) {
+        return reject(`This room has no ${action.near} yet — add one in Stage 3 (Room model).`);
+      }
+      const spot = target
+        ? placeNear(item, target, nextPlacements, openings, s.room.dimensions)
+        : findFreeSpot(item, nextPlacements, openings, s.room.dimensions);
+      if (!spot) {
+        return reject(
+          `There's no free spot${target ? ` near the ${action.near}` : ""} for a ${action.itemType} — remove or move something first.`
+        );
+      }
+      nextPlacements.push(spot);
     }
 
     await get().revalidateActive(nextPlacements, summary);
@@ -458,11 +605,11 @@ export const useRoomStore = create<RoomStoreState>((set, get) => ({
       commandLog: [
         {
           id: newId("cmd"),
-          text,
-          result: latest.activeFeasible ? `Applied — ${summary}` : `Applied with issues: ${latest.activeViolations[0] ?? ""}`,
+          text: logText,
+          result: via + (latest.activeFeasible ? `Applied — ${summary}` : `Applied with issues: ${latest.activeViolations[0] ?? ""}`),
           ok: latest.activeFeasible,
         },
-        ...s.commandLog,
+        ...get().commandLog,
       ],
     });
   },
@@ -505,6 +652,10 @@ export const useRoomStore = create<RoomStoreState>((set, get) => ({
       activeViolations: [],
       commandLog: [],
       versions: [],
+      viewTheme: null,
+      styleOverrides: { items: {} },
+      styleSuggestion: null,
+      suggestingStyle: false,
     });
   },
 }));

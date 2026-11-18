@@ -1,45 +1,48 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useRoomStore } from "@/shared/store/roomStore";
-import { productImageUrl, recommendForCategory } from "@/shared/lib/catalog";
-import { furnitureTypeIn } from "@/shared/lib/furniture";
+import { categoryForLabel, productImageUrl, recommendForCategory, THEMES } from "@/shared/lib/catalog";
+import { fitProductAt } from "@/shared/lib/layoutEngine";
 import { api, ApiError } from "@/shared/lib/api";
-import type { Product, ProductCategory } from "@/shared/types";
+import { roomDimensionsCm } from "@/shared/lib/units";
+import type { RoomItem } from "@/shared/lib/room3d";
+import type { Placement, Product } from "@/shared/types";
 import { Badge, Card, EmptyState, SectionHeading, Spinner } from "@/shared/ui/Primitives";
+import { ThemePicker } from "@/shared/ui/ThemePicker";
 
-/** Product category for a placement: a furniture type, or lamp/decor. */
-function guessCategory(label: string): ProductCategory {
-  const furniture = furnitureTypeIn(label);
-  if (furniture) return furniture;
-  const lower = label.toLowerCase();
-  if (lower.includes("lamp")) return "lamp";
-  if (lower.includes("decor") || lower.includes("plant")) return "decor";
-  return "other";
-}
+// three.js is large; only load it when the products stage is opened.
+const Room3DView = lazy(() => import("@/shared/ui/Room3DView"));
 
 const rupees = (n: number) => `₹${n.toLocaleString("en-IN")}`;
+const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
 
 export function RecommendationsStage() {
-  const { room, activePlacements, chosenProducts, chooseProduct, reset } = useRoomStore();
+  const { room, activePlacements, chosenProducts, chooseProduct, reset, viewTheme, styleOverrides } = useRoomStore();
+  // Starts on the theme the studio's 3D view was showing; switching it re-ranks every category.
+  const [theme, setTheme] = useState(viewTheme ?? room?.theme ?? THEMES[0]);
 
   const groups = useMemo(() => {
     if (!room) return [];
     const budget = room.budget ?? 100000;
+    const openings = room.openings ?? [];
     return activePlacements
       .map((p) => {
-        const category = guessCategory(p.label);
+        const category = categoryForLabel(p.label);
         if (category === "other") return null;
-        const matches = recommendForCategory(
-          category,
-          p.width_cm * 1.15,
-          p.depth_cm * 1.15,
-          budget,
-          room.theme,
-          3
-        );
-        return { placement: p, category, matches };
+        // A product fits if its real size can sit in this spot without
+        // breaking any rule; remember where, for the concept image.
+        const others = activePlacements.filter((o) => o.item_id !== p.item_id);
+        const fitted: Record<string, Placement> = {};
+        const fits = (product: Product) => {
+          const spot = fitProductAt(p, product, others, openings, room.dimensions);
+          if (spot) fitted[product.id] = spot;
+          return spot !== null;
+        };
+        const matches = recommendForCategory(category, fits, budget, theme, 3);
+        return { placement: p, category, matches, fitted };
       })
       .filter((g): g is NonNullable<typeof g> => g !== null && g.matches.length > 0);
-  }, [room, activePlacements]);
+  }, [room, activePlacements, theme]);
 
   // The user's pick for each placement, or the top match if they haven't
   // picked one. Only current placements count, so removed items drop out.
@@ -55,15 +58,41 @@ export function RecommendationsStage() {
 
   const total = Object.values(selections).reduce((sum, p) => sum + p.price, 0);
 
+  // The layout as it would be with the chosen products at their real sizes.
+  const conceptPlacements = useMemo(
+    () =>
+      activePlacements.map((p) => {
+        const group = groups.find((g) => g.placement.item_id === p.item_id);
+        const chosen = selections[p.item_id];
+        return (group && chosen && group.fitted[chosen.id]) || p;
+      }),
+    [activePlacements, groups, selections]
+  );
+
+  // What the 3D view draws: each piece at its real size, with its product.
+  const items3d = useMemo<RoomItem[]>(
+    () =>
+      conceptPlacements.map((placement) => ({
+        placement,
+        category: categoryForLabel(placement.label),
+        product: selections[placement.item_id],
+      })),
+    [conceptPlacements, selections]
+  );
+  const openings = useMemo(() => room?.openings ?? [], [room]);
+
   if (!room) return null;
+  const [lengthCm, widthCm] = roomDimensionsCm(room.dimensions);
 
   return (
     <div>
       <SectionHeading
         eyebrow="Stage 12"
         title="Products that fit this room"
-        description={`Matched against your ${room.theme.toLowerCase()} theme${room.budget ? `, a ${rupees(room.budget)} budget,` : ""} and each placement's footprint — closest style match first. Click a product to choose it.`}
+        description={`Pick a theme to see products in that style${room.budget ? `, within your ${rupees(room.budget)} budget` : ""}, sized to fit each placement — closest style match first. Click a product to choose it.`}
       />
+
+      <ThemePicker value={theme} roomTheme={room.theme} onChange={setTheme} label="Browse products by theme" />
 
       {groups.length === 0 ? (
         <Card>
@@ -84,13 +113,14 @@ export function RecommendationsStage() {
             ) : null}
           </p>
 
-          <div className="space-y-8 stagger">
+          {/* Re-keyed on the theme so the new options animate in. */}
+          <div key={theme} className="space-y-8 stagger">
             {groups.map(({ placement, category, matches }) => (
               <div key={placement.item_id}>
                 <p className="text-sm font-medium mb-2">
                   For your <span className="text-blueprint-700">{placement.label}</span>{" "}
                   <span className="text-ink-muted text-xs font-mono">
-                    ({placement.width_cm}×{placement.depth_cm}cm space, {category})
+                    (planned {placement.width_cm}×{placement.depth_cm}cm, {category})
                   </span>
                 </p>
                 <div className="grid grid-cols-3 gap-4 stagger">
@@ -99,6 +129,7 @@ export function RecommendationsStage() {
                       key={product.id}
                       product={product}
                       score={score}
+                      inTheme={product.theme?.toLowerCase() === theme.toLowerCase()}
                       chosen={selections[placement.item_id]?.id === product.id}
                       onChoose={() => chooseProduct(placement.item_id, product)}
                     />
@@ -108,7 +139,20 @@ export function RecommendationsStage() {
             ))}
           </div>
 
-          <ConceptImage roomId={room.id} selections={selections} />
+          <Card className="mt-8 space-y-4">
+            <div>
+              <p className="font-medium">Your room in 3D</p>
+              <p className="text-xs text-ink-muted">
+                The chosen pieces at their real sizes, in {theme.toLowerCase()} materials. Switch the theme above to
+                restyle the room.
+              </p>
+            </div>
+            <Suspense fallback={<div className="skeleton rounded-xl h-[460px]" aria-hidden />}>
+              <Room3DView lengthCm={lengthCm} widthCm={widthCm} openings={openings} items={items3d} theme={theme} overrides={styleOverrides} />
+            </Suspense>
+          </Card>
+
+          <ConceptImage roomId={room.id} theme={theme} placements={conceptPlacements} selections={selections} />
         </>
       )}
 
@@ -124,11 +168,13 @@ export function RecommendationsStage() {
 function ProductCard({
   product,
   score,
+  inTheme,
   chosen,
   onChoose,
 }: {
   product: Product;
   score: number;
+  inTheme: boolean;
   chosen: boolean;
   onChoose: () => void;
 }) {
@@ -181,6 +227,12 @@ function ProductCard({
       <p className="text-sm font-medium leading-tight">{product.name}</p>
       <p className="text-xs text-ink-muted mt-0.5">
         {product.width_cm}×{product.depth_cm}cm
+        {product.theme && (
+          <>
+            {" · "}
+            <span className={inTheme ? "text-brass-700" : ""}>{capitalise(product.theme)}</span>
+          </>
+        )}
       </p>
       <div className="flex items-center justify-between mt-2">
         <span className="font-mono text-sm text-brass-700">{rupees(product.price)}</span>
@@ -201,8 +253,17 @@ function ProductCard({
 
 /** The backend's final concept sheet: the active layout with each chosen
  * product's photo drawn in its footprint. */
-function ConceptImage({ roomId, selections }: { roomId: string; selections: Record<string, Product> }) {
-  const activePlacements = useRoomStore((s) => s.activePlacements);
+function ConceptImage({
+  roomId,
+  theme,
+  placements,
+  selections,
+}: {
+  roomId: string;
+  theme: string;
+  placements: Placement[];
+  selections: Record<string, Product>;
+}) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -218,7 +279,7 @@ function ConceptImage({ roomId, selections }: { roomId: string; selections: Reco
     setLoading(true);
     setError(null);
     try {
-      const blob = await api.conceptImage(roomId, { placements: activePlacements, selections });
+      const blob = await api.conceptImage(roomId, { placements, selections, theme });
       setImageUrl(URL.createObjectURL(blob));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Couldn't render the concept image.");

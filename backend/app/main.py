@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.api.commands import router as commands_router
 from app.api.rooms import router as rooms_router
 
 _STATIC_DIR = Path(__file__).parent / "static"
@@ -27,10 +28,18 @@ app = FastAPI(
                 "constraints (boundaries, overlap, walkway clearance)."
             ),
         },
+        {
+            "name": "Commands",
+            "description": (
+                "Match free-form command phrasings to the commands the app "
+                "knows, with a small local sentence-embedding model."
+            ),
+        },
     ],
 )
 
 app.include_router(rooms_router)
+app.include_router(commands_router)
 
 # The Vite dev server runs on a different origin, so the browser needs
 # explicit permission to call this API. Add any other dev origin here.

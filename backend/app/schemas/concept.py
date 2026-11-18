@@ -5,7 +5,7 @@ products are sent with the request instead of being duplicated here. This
 keeps the endpoint a pure renderer: it never invents recommendations.
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.schemas.layout import Placement
 
@@ -24,3 +24,5 @@ class ConceptProduct(BaseModel):
 class ConceptImageRequest(BaseModel):
     placements: list[Placement]
     selections: dict[str, ConceptProduct]  # placement.item_id -> chosen product
+    # Theme the products were browsed in; defaults to the room's theme.
+    theme: str | None = Field(default=None, max_length=40)

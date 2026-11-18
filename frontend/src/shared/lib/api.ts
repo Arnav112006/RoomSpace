@@ -1,4 +1,4 @@
-import type { Opening, Placement, Product, RoomCreate, RoomResponse } from "@/shared/types";
+import type { Opening, Placement, Product, RoomCreate, RoomResponse, StyleSuggestion } from "@/shared/types";
 
 // Points at the FastAPI service in backend/app. Override with
 // VITE_API_BASE_URL in .env if it's not running on the default port.
@@ -79,6 +79,20 @@ export const api = {
     });
   },
 
+  /** Zero-shot CLIP theme ranking and wall/floor colours from the photos (needs the backend's ML extras). */
+  styleSuggestion: (roomId: string, files: File[]) => {
+    const form = new FormData();
+    for (const file of files) form.append("photos", file);
+    return request<StyleSuggestion>(`/api/rooms/${roomId}/style-suggestion`, { method: "POST", body: form });
+  },
+
+  /** Closest known commands to a free-form phrasing (local sentence model on the backend). */
+  interpretCommand: (text: string, candidates: string[]) =>
+    request<{ matches: { candidate: string; score: number }[] }>(`/api/commands/interpret`, {
+      method: "POST",
+      body: JSON.stringify({ text, candidates }),
+    }),
+
   validateLayout: (roomId: string, placements: Placement[]) =>
     request<{ feasible: boolean; violations: string[]; svg: string }>(
       `/api/rooms/${roomId}/validate-layout`,
@@ -87,7 +101,7 @@ export const api = {
 
   conceptImage: (
     roomId: string,
-    payload: { placements: Placement[]; selections: Record<string, Product> }
+    payload: { placements: Placement[]; selections: Record<string, Product>; theme?: string }
   ) =>
     requestBlob(`/api/rooms/${roomId}/concept-image`, {
       method: "POST",
