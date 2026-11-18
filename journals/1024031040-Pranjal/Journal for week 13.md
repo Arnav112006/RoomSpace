@@ -1,7 +1,5 @@
 # Journal for Week 13
 
-**Date and Context:** November 15–18, 2026 · RoomSpace · branch `main` · commits `93db052`, `0862d46`, `ea7d74a`, `b665a18`
-
 **Primary Objective:** Make layouts account for doors and windows, improve the room-input experience, and reduce duplicated application logic.
 
 **Methodology and Execution:** Added opening schemas and constraints, renderers for room plans and concept images, a door/window editor, backend tests, and GitHub Actions checks. Redesigned the application flow, added multi-photo upload and preview, merged detections across views, and improved product imagery. Follow-up cleanup removed redundant helpers and centralized furniture defaults and synonyms.

@@ -1,7 +1,5 @@
 # Journal for Week 2
 
-**Date and Context:** August 30–September 5, 2026 · RoomSpace · branch `main` · merge commit `b177b80`
-
 **Primary Objective:** Turn the proposal into a clear repository structure and a working backend foundation.
 
 **Methodology and Execution:** Organized the project into frontend, backend, machine-learning, documentation, and supporting areas. Started the FastAPI service and added validated room data, room creation with a UUID, a health-check endpoint, and Swagger API documentation.

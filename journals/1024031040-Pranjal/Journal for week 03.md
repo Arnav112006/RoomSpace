@@ -1,7 +1,5 @@
 # Journal for Week 3
 
-**Date and Context:** September 6–12, 2026 · RoomSpace · branch `main` · commits `daa7920`, `96782f9`, `fd71084`, `4fb8fbc`, `a9e697e`
-
 **Primary Objective:** Make the initial room-planning workflow demonstrable and connect room understanding to product recommendations.
 
 **Methodology and Execution:** Added layout and placement schemas, room management and validation, furniture detection with pretrained YOLOv8, a React/TypeScript/Tailwind frontend, and pretrained CLIP matching for product-to-style ranking. The frontend included fallback data so its workflow could be explored while API integration developed.

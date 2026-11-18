@@ -1,7 +1,5 @@
 # Journal for Week 1
 
-**Date and Context:** August 23–29, 2026 · RoomSpace · branch `main` · commit `f675480`
-
 **Primary Objective:** Define the room-planning problem and establish a scope the team can implement.
 
 **Methodology and Execution:** Prepared the project proposal for a constraint-based room planning and decoration recommendation system. The proposal organized the problem, workflow, web architecture, spatial constraints, evaluation approach, risks, and deliverables.

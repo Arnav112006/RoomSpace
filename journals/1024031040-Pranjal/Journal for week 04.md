@@ -1,7 +1,5 @@
 # Journal for Week 4
 
-**Date and Context:** September 13–19, 2026 · RoomSpace · branch `main` · commits `3b3e712`, `dffe76f`
-
 **Primary Objective:** Turn room-photo detections into useful starting points for a floor plan.
 
 **Methodology and Execution:** Restructured the frontend into modules and introduced a dark theme. Improved YOLO-based furniture analysis, estimated furniture dimensions from known room dimensions, added an endpoint that turns detections into a rough layout, introduced zone placement, and added a live backend demo.

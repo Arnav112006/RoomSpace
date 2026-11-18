@@ -1,7 +1,5 @@
 # Journal for Week 10
 
-**Date and Context:** October 25–31, 2026 · RoomSpace · branch `main` · commit `a490392`
-
 **Primary Objective:** Document a shared room model and make local frontend-to-backend requests work in the browser.
 
 **Methodology and Execution:** Added `docs/room-model.md` with the coordinate system, centimetre convention, vocabulary for rooms/items/openings, and geometric rules. Added CORS middleware to allow the local Vite origins to call the FastAPI backend.
