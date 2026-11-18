@@ -16,4 +16,4 @@ if errors:
     raise HTTPException(status_code=422, detail=errors)
 ~~~
 
-**Next Steps:** Run the configured backend and frontend checks, exercise a room containing doors and windows end to end, and record any failures with their input and relevant commit.
+**Next Steps:** Run the configured backend and frontend checks, exercise a room containing doors and windows end to end, and record any failures with their input.
