@@ -2,6 +2,8 @@
 
 **Primary Objective:** Make the initial room-planning workflow demonstrable and connect room understanding to product recommendations.
 
+**Problems Faced:** The frontend, backend, and machine-learning components were being developed together, so integration was not yet reliable. Furniture detection and product-style matching also depended on model outputs that needed to be translated into data the application could use.
+
 **Methodology and Execution:** Added layout and placement schemas, room management and validation, furniture detection with pretrained YOLOv8, a React/TypeScript/Tailwind frontend. The frontend included fallback data so its workflow could be explored while API integration developed.
 
 **Observations and Artifacts:** The commits add `backend/app/services/room_analysis.py`, `ml/clip_matching/zero_shot.py`, and the initial frontend.
