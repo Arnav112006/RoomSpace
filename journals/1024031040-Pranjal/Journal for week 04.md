@@ -2,6 +2,8 @@
 
 **Primary Objective:** Turn room-photo detections into useful starting points for a floor plan.
 
+**Problems Faced:** Furniture dimensions estimated from photos could be inaccurate because of perspective, cropping, or partial obstruction. Detected zones only gave approximate positions, so converting them into floor-plan placements could still produce overlaps or other layout violations.
+
 **Methodology and Execution:** Restructured the frontend into modules and introduced a dark theme. Improved YOLO-based furniture analysis, estimated furniture dimensions from known room dimensions, added an endpoint that turns detections into a rough layout, introduced zone placement, and added a live backend demo.
 
 **Observations and Artifacts:** The relevant code is in `backend/app/services/room_analysis.py`, `backend/app/services/zone_placement.py`, `backend/app/api/rooms.py`, and `backend/app/static/demo.html`. Zone placement maps detections to approximate coordinates; it does not optimize the layout.
