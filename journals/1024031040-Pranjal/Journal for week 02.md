@@ -2,6 +2,8 @@
 
 **Primary Objective:** Turn the proposal into a clear repository structure and a working backend foundation.
 
+**Problems Faced:** The backend needed a consistent room data structure before layout and persistence features could be added. Invalid or incomplete room dimensions could cause errors in later planning steps, so the API needed to validate input early.
+
 **Methodology and Execution:** Organized the project into frontend, backend, machine-learning, documentation, and supporting areas. Started the FastAPI service and added validated room data, room creation with a UUID, a health-check endpoint, and Swagger API documentation.
 
 **Observations and Artifacts:** `backend/app/schemas/room.py` validates room dimensions; `backend/app/api/rooms.py` creates a room and assigns its identifier. The schema uses feet as its default input unit.
