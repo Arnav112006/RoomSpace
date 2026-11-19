@@ -2,6 +2,8 @@
 
 **Primary Objective:** Document a shared room model and make local frontend-to-backend requests work in the browser.
 
+**Problems Faced:** The frontend and backend ran on different local origins, which could cause the browser to block API requests without CORS configuration. The system also needed a shared coordinate and unit convention so the frontend, backend, renderer, and constraint checks would agree.
+
 **Methodology and Execution:** Added `docs/room-model.md` with the coordinate system, centimetre convention, vocabulary for rooms/items/openings, and geometric rules. Added CORS middleware to allow the local Vite origins to call the FastAPI backend.
 
 **Observations and Artifacts:** The room-model guide states that internal lengths use centimetres. The middleware change is in `backend/app/main.py`.
